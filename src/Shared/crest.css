@@ -1,0 +1,10 @@
+.crest {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Barlow Condensed';
+  font-weight: 800;
+  color: #fff;
+  flex: 0 0 auto;
+}

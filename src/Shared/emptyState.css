@@ -1,0 +1,14 @@
+.empty-state {
+  text-align: center;
+  padding: 50px 20px;
+  color: var(--ink-soft);
+  border: 1px dashed #ddd6bd;
+  background: #fff;
+}
+
+.empty-state .big {
+  font-family: 'Barlow Condensed';
+  font-size: 20px;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
