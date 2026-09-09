@@ -12,7 +12,18 @@ export default function PlayerProfile() {
   const [tab, setTab] = useState("overview");
 
   const p = player(id);
-  if (!p) return <div className="max-w- mx-auto px-6 py-20">Player not found <button onClick={()=>navigate('/players')} className="text-[#C7A344] underline ml-2">Back</button></div>;
+  if (!p)
+    return (
+      <div className="max-w-4xl mx-auto px-6 py-20 text-center">
+        <EmptyState big="Player not found." />
+        <button
+          onClick={() => navigate("/players")}
+          className="text-[#C7A344] underline mt-3 text-sm"
+        >
+          Back to Players
+        </button>
+      </div>
+    );
 
   const t = team(p.teamId);
   const s = playerStats(p.id);
@@ -26,37 +37,47 @@ export default function PlayerProfile() {
   return (
     <>
       <section className="bg-gradient-to-br from-[#0E3B2E] to-[#0A2A20] text-[#F5F2E8] py-10">
-        <div className="max-w- mx-auto px-6 flex gap-6 items-center">
-          <div className="w- h- rounded-full bg-[#C7A344] text-[#12181A] flex items-center justify-center font-barlow font-extrabold text- border-4 border-white/20 shrink-0">
+        <div className="max-w-5xl mx-auto px-6 flex gap-6 items-center flex-wrap">
+          <div className="w-24 h-24 rounded-full bg-[#C7A344] text-[#12181A] flex items-center justify-center font-barlow font-extrabold text-3xl border-4 border-white/20 shrink-0">
             {initials(p.displayName)}
           </div>
           <div>
             <div className="text-[#E4CD8A] text-sm font-semibold">
               #{p.jersey} · {p.position}
             </div>
-            <h1 className="font-barlow text- leading-none mt-1">{p.displayName}</h1>
-            <div className="mt-2 text-[#E9E4D2] text-sm">
+            <h1 className="font-barlow text-4xl leading-none mt-1.5">{p.displayName}</h1>
+            <div className="mt-2 text-[#E9E4D2]/80 text-sm">
               {t?.name} · {p.nationality} · Age {ageFromDOB(p.dob)}
             </div>
-            <button onClick={()=>navigate('/players')} className="mt-3 text- border border-white/20 px-3 py-1 rounded- hover:border-[#E4CD8A]">← Back to Players</button>
+            <button
+              onClick={() => navigate("/players")}
+              className="mt-3 text-xs border border-white/20 px-3 py-1.5 rounded-sm hover:border-[#E4CD8A] hover:text-[#E4CD8A] transition-colors"
+            >
+              ← Back to Players
+            </button>
           </div>
         </div>
       </section>
       <section className="py-8">
-        <div className="max-w- mx-auto px-6">
-          <div className="flex gap-1 border-b border-[#e4dfcd] mb-5 flex-wrap">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="flex gap-1 border-b border-[#e4dfcd] mb-6 flex-wrap">
             {["overview", "statistics", "matches", "injuries"].map((k) => (
               <div
                 key={k}
                 onClick={() => setTab(k)}
-                className={`px-4 py-2.5 text-[13.5px] font-semibold cursor-pointer border-b-2 ${tab === k? "text-[#0E3B2E] border-[#C7A344]" : "text-[#2A3532] border-transparent"}`}
+                className={`px-4 py-2.5 text-[13.5px] font-semibold cursor-pointer border-b-2 transition-colors ${
+                  tab === k
+                    ? "text-[#0E3B2E] border-[#C7A344]"
+                    : "text-[#2A3532]/60 border-transparent hover:text-[#2A3532]"
+                }`}
               >
                 {k[0].toUpperCase() + k.slice(1)}
               </div>
             ))}
           </div>
+
           {tab === "overview" && (
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
               {[
                 ["Full Name", p.firstName + " " + p.lastName],
                 ["DOB", fmtDate(p.dob)],
@@ -68,25 +89,31 @@ export default function PlayerProfile() {
                 ["Status", p.status],
                 ["Contract", fmtDate(p.contractEnd)],
               ].map(([l, v]) => (
-                <div key={l} className="bg-white border border-[#e4dfcd] p-3">
-                  <div className="text- text-[#9a9482]">{l.toUpperCase()}</div>
-                  <div className="font-barlow font-bold text- mt-0.5">{v}</div>
+                <div key={l} className="bg-white border border-[#e4dfcd] p-3.5">
+                  <div className="text-[10px] tracking-[0.5px] text-[#9a9482] font-semibold">
+                    {l.toUpperCase()}
+                  </div>
+                  <div className="font-barlow font-bold text-lg mt-0.5 text-[#12181A]">{v}</div>
                 </div>
               ))}
             </div>
           )}
+
           {tab === "statistics" && (
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
               {Object.entries(s).map(([k, v]) => (
-                <div key={k} className="bg-white border border-[#e4dfcd] p-3">
-                  <div className="text- text-[#9a9482]">{k.toUpperCase()}</div>
-                  <div className="font-barlow font-bold text- mt-0.5">{v}</div>
+                <div key={k} className="bg-white border border-[#e4dfcd] p-3.5">
+                  <div className="text-[10px] tracking-[0.5px] text-[#9a9482] font-semibold">
+                    {k.toUpperCase()}
+                  </div>
+                  <div className="font-barlow font-bold text-lg mt-0.5 text-[#0E3B2E]">{v}</div>
                 </div>
               ))}
             </div>
           )}
+
           {tab === "matches" &&
-            (pMatches.length? (
+            (pMatches.length ? (
               <div className="grid md:grid-cols-3 gap-4">
                 {pMatches.map((m) => (
                   <MatchCard key={m.id} m={m} />
@@ -95,27 +122,26 @@ export default function PlayerProfile() {
             ) : (
               <EmptyState big="No matches recorded." />
             ))}
+
           {tab === "injuries" &&
-            (pInjuries.length? (
+            (pInjuries.length ? (
               <div className="overflow-x-auto bg-white border border-[#e4dfcd]">
-                <table className="w-full text-">
+                <table className="w-full text-[13.5px]">
                   <thead>
-                    <tr className="bg-[#F0EDE0] text- text-[#2A3532]">
-                      <th className="text-left p-2 px-3">Type</th>
-                      <th className="text-left p-2 px-3">Date</th>
-                      <th className="text-left p-2 px-3">Return</th>
-                      <th className="text-left p-2 px-3">Status</th>
+                    <tr className="bg-[#F0EDE0] text-[11px] tracking-[0.5px] text-[#2A3532]">
+                      <th className="text-left p-3">Type</th>
+                      <th className="text-left p-3">Date</th>
+                      <th className="text-left p-3">Return</th>
+                      <th className="text-left p-3">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pInjuries.map((i) => (
-                      <tr key={i.id} className="border-b border-[#efe9d8]">
-                        <td className="p-2 px-3">{i.type}</td>
-                        <td className="p-2 px-3">{fmtDate(i.date)}</td>
-                        <td className="p-2 px-3">
-                          {fmtDate(i.expectedReturn)}
-                        </td>
-                        <td className="p-2 px-3">{i.status}</td>
+                      <tr key={i.id} className="border-b border-[#efe9d8] last:border-0 hover:bg-[#FFFEF7]">
+                        <td className="p-3">{i.type}</td>
+                        <td className="p-3">{fmtDate(i.date)}</td>
+                        <td className="p-3">{fmtDate(i.expectedReturn)}</td>
+                        <td className="p-3">{i.status}</td>
                       </tr>
                     ))}
                   </tbody>

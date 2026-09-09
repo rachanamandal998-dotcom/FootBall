@@ -16,21 +16,21 @@ export default function Players() {
 
   return (
     <section className="py-14">
-      <div className="max-w- mx-auto px-6">
-        <h2 className="font-barlow text- leading-none">Player Directory</h2>
-        <p className="text-sm text-[#2A3532] mb-5 mt-1">
+      <div className="max-w-6xl mx-auto px-6">
+        <h2 className="font-barlow text-4xl leading-none text-[#12181A]">Player Directory</h2>
+        <p className="text-sm text-[#2A3532]/70 mb-6 mt-2">
           {list.length} players across Sindhuli district clubs
         </p>
-        <div className="grid md:grid-cols-[1fr_1fr] gap-3 mb-6">
+        <div className="grid md:grid-cols-[1fr_1fr] gap-3 mb-7">
           <input
-            className="border border-[#ddd6bd] px-3 py-2 rounded- text-sm bg-white w-full outline-none focus:border-[#0E3B2E]"
+            className="border border-[#ddd6bd] px-3 py-2 text-sm bg-white w-full outline-none focus:border-[#0E3B2E] transition-colors"
             placeholder="Search by name..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
           <div className="flex gap-2">
             <select
-              className="border border-[#ddd6bd] px-3 py-2 rounded- text-sm w-full bg-white outline-none"
+              className="border border-[#ddd6bd] px-3 py-2 text-sm w-full bg-white outline-none focus:border-[#0E3B2E] transition-colors"
               value={pos}
               onChange={(e) => setPos(e.target.value)}
             >
@@ -41,7 +41,7 @@ export default function Players() {
               <option>Forward</option>
             </select>
             <select
-              className="border border-[#ddd6bd] px-3 py-2 rounded- text-sm w-full bg-white outline-none"
+              className="border border-[#ddd6bd] px-3 py-2 text-sm w-full bg-white outline-none focus:border-[#0E3B2E] transition-colors"
               value={team}
               onChange={(e) => setTeam(e.target.value)}
             >
@@ -54,11 +54,17 @@ export default function Players() {
             </select>
           </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {list.map((p) => (
-            <PlayerCard key={p.id} p={p} />
-          ))}
-        </div>
+        {list.length ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {list.map((p) => (
+              <PlayerCard key={p.id} p={p} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16 text-[#2A3532]/60 text-sm">
+            No players match your filters.
+          </div>
+        )}
       </div>
     </section>
   );
