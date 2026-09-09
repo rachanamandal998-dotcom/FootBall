@@ -3,6 +3,8 @@ export const ADMIN_PASS = 'admin123'
 
 export const uid = () => Math.random().toString(36).slice(2,9)
 
+export const nextId = (prefix = "") => `${prefix}${Date.now()}`
+
 export const colorFor = (str='?') => {
   let hash=0; for(let i=0;i<str.length;i++) hash=str.charCodeAt(i)+((hash<<5)-hash)
   const colors=['#0E3B2E','#134A38','#1E7245','#C7A344','#A6372B','#2A5D8A','#5B3E31']

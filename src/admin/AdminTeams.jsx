@@ -1,108 +1,126 @@
 import { useState } from 'react'
 import { useData } from '../context/DataContext.jsx'
+import { nextId } from '../utils/helpers.js'
+import { Field, IdField, FormShell, PageHeader, ListCard, inputClass } from './FormUI.jsx'
+
+const EMPTY = { id: '', name: '', shortName: '', location: '', stadium: '', coach: '', founded: '', status: 'Active' }
 
 export default function AdminTeams() {
-  const { DB, saveData, showToast } = useData()
-  const teams = DB?.teams || []
+  const { DB, createRecord, updateRecord, deleteRecord, showToast } = useData()
   const [showForm, setShowForm] = useState(false)
-  const [editingTeam, setEditingTeam] = useState(null)
+  const [editing, setEditing] = useState(null)
+  const [form, setForm] = useState(EMPTY)
+  const [saving, setSaving] = useState(false)
 
-  const [form, setForm] = useState({
-    name: '',
-    shortName: '',
-    location: '',
-    stadium: '',
-    coach: '',
-    category: '',
-    founded: '',
-  })
+  const set = (key) => (e) => setForm({ ...form, [key]: e.target.value })
 
-  const handleChange = (e) => {
-    setForm({...form, [e.target.name]: e.target.value })
-  }
-
-  const resetForm = () => {
-    setForm({ name: '', shortName: '', location: '', stadium: '', coach: '', category: '', founded: '' })
-    setEditingTeam(null)
-    setShowForm(false)
-  }
-
-  const handleAdd = () => {
-    resetForm()
+  const openAdd = () => {
+    setEditing(null)
+    setForm({ ...EMPTY, id: nextId('t') })
     setShowForm(true)
   }
 
-  const handleEdit = (team) => {
-    setEditingTeam(team)
+  const openEdit = (team) => {
+    setEditing(team)
     setForm({
+      id: team.id || '',
       name: team.name || '',
       shortName: team.shortName || '',
       location: team.location || '',
       stadium: team.stadium || '',
       coach: team.coach || team.manager || '',
-      category: team.category || '',
-      founded: team.founded || '',
+      founded: team.founded ?? '',
+      status: team.status || 'Active',
     })
     setShowForm(true)
   }
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!form.name.trim()) { showToast('Team name required', true); return }
-
-    if (editingTeam) {
-      const updated = teams.map(t => t.id === editingTeam.id? {...t,...form, manager: form.coach } : t)
-      saveData({...DB, teams: updated })
-      showToast('Team updated')
-    } else {
-      const newTeam = { id: `t${Date.now()}`,...form, manager: form.coach }
-      saveData({...DB, teams: [...teams, newTeam] })
-      showToast('Team added')
-    }
-    resetForm()
+  const reset = () => {
+    setShowForm(false)
+    setEditing(null)
+    setForm(EMPTY)
   }
 
-  const handleDelete = (id) => {
-    if (!confirm('Delete this team?')) return
-    saveData({...DB, teams: teams.filter(t => t.id!== id) })
-    showToast('Team deleted')
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!form.name.trim()) return showToast('Name is required', true)
+    if (!form.location.trim()) return showToast('Location is required', true)
+    if (!form.stadium.trim()) return showToast('Stadium is required', true)
+    if (!form.coach.trim()) return showToast('Coach is required', true)
+
+    const record = {
+      ...form,
+      founded: form.founded === '' ? '' : Number(form.founded),
+      manager: form.coach,
+    }
+
+    setSaving(true)
+    try {
+      if (editing) {
+        await updateRecord('teams', editing.id, record)
+        showToast('Team updated')
+      } else {
+        await createRecord('teams', record)
+        showToast('Team created')
+      }
+      reset()
+    } catch (err) {
+      showToast(err.message || 'Save failed', true)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
-    <div className="max-w- mx-auto px-6 py-10">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text- font-bold text-[#123B2A]">Manage Teams</h1>
-          <p className="text- text-gray-500">{teams.length} teams</p>
-        </div>
-        <button onClick={handleAdd} className="bg-[#123B2A] text-white px-5 py-3 rounded- text- font-bold">+ Add Team</button>
-      </div>
+    <div className="max-w-5xl mx-auto">
+      <PageHeader title="Teams" count={DB.teams.length} onAdd={openAdd} addLabel="+ Add Team" />
 
       {showForm && (
-        <div className="bg-white border rounded- p-6 mb-8">
-          <h2 className="text- font-bold mb-5">{editingTeam? 'Edit Team' : 'Add Team'}</h2>
-          <form onSubmit={handleSubmit} className="grid md:grid-cols-2 gap-4">
-            <div><label className="text- font-bold">Team Name *</label><input name="name" value={form.name} onChange={handleChange} placeholder="Laxmipur FC" className="w-full border px-4 py-3 rounded- text- mt-1" /></div>
-            <div><label className="text- font-bold">Short Name</label><input name="shortName" value={form.shortName} onChange={handleChange} placeholder="LFC" className="w-full border px-4 py-3 rounded- text- mt-1" /></div>
-            <div><label className="text- font-bold">Location *</label><input name="location" value={form.location} onChange={handleChange} placeholder="Laxmipur, Sindhuli" className="w-full border px-4 py-3 rounded- text- mt-1" /></div>
-            <div><label className="text- font-bold">Stadium *</label><input name="stadium" value={form.stadium} onChange={handleChange} placeholder="Laxmipur Ground" className="w-full border px-4 py-3 rounded- text- mt-1" /></div>
-            <div><label className="text- font-bold">Coach *</label><input name="coach" value={form.coach} onChange={handleChange} placeholder="Rachana Mandal" className="w-full border px-4 py-3 rounded- text- mt-1" /></div>
-            <div><label className="text- font-bold">Category</label><input name="category" value={form.category} onChange={handleChange} placeholder="Senior / U-19" className="w-full border px-4 py-3 rounded- text- mt-1" /></div>
-            <div><label className="text- font-bold">Founded</label><input name="founded" value={form.founded} onChange={handleChange} placeholder="2020" className="w-full border px-4 py-3 rounded- text- mt-1" /></div>
-            <div className="md:col-span-2 flex gap-3 mt-2">
-              <button type="submit" className="bg-[#1E7245] text-white px-6 py-3 rounded- text- font-bold">{editingTeam? 'Update Team' : 'Save Team'}</button>
-              <button type="button" onClick={resetForm} className="border px-6 py-3 rounded- text-">Cancel</button>
-            </div>
-          </form>
-        </div>
+        <FormShell
+          title={editing ? `Edit Team — ${editing.id}` : 'Add Team'}
+          onSubmit={handleSubmit}
+          onCancel={reset}
+          saving={saving}
+        >
+          <IdField value={form.id} />
+          <Field label="Name *">
+            <input value={form.name} onChange={set('name')} className={inputClass} placeholder="Laxmipur FC" required />
+          </Field>
+          <Field label="Short Name">
+            <input value={form.shortName} onChange={set('shortName')} className={inputClass} placeholder="LFC" />
+          </Field>
+          <Field label="Location *">
+            <input value={form.location} onChange={set('location')} className={inputClass} placeholder="Laxmipur, Sindhuli" required />
+          </Field>
+          <Field label="Stadium *">
+            <input value={form.stadium} onChange={set('stadium')} className={inputClass} placeholder="Laxmipur Ground" required />
+          </Field>
+          <Field label="Coach *">
+            <input value={form.coach} onChange={set('coach')} className={inputClass} placeholder="Rachana Mandal" required />
+          </Field>
+          <Field label="Founded">
+            <input type="number" value={form.founded} onChange={set('founded')} className={inputClass} placeholder="2012" />
+          </Field>
+          <Field label="Status">
+            <select value={form.status} onChange={set('status')} className={inputClass}>
+              <option>Active</option>
+              <option>Inactive</option>
+            </select>
+          </Field>
+        </FormShell>
       )}
 
       <div className="space-y-2">
-        {teams.map(t => (
-          <div key={t.id} className="bg-white border rounded- p-4 flex justify-between items-center">
-            <div><div className="font-bold text-">{t.name} <span className="text- bg-[#E9E4D2] px-2 py-1 rounded ml-2">{t.shortName}</span></div><div className="text- text-gray-500 mt-1">📍 {t.location} | 🏟️ {t.stadium} | 👤 {t.coach} | {t.category} | {t.founded}</div></div>
-            <div className="flex gap-2"><button onClick={()=>handleEdit(t)} className="border border-[#1E7245] text-[#1E7245] px-4 py-1.5 rounded- text-">Edit</button><button onClick={()=>handleDelete(t.id)} className="border border-red-500 text-red-500 px-4 py-1.5 rounded- text-">Delete</button></div>
-          </div>
+        {DB.teams.map((t) => (
+          <ListCard
+            key={t.id}
+            title={t.name}
+            subtitle={`ID: ${t.id} · ${t.shortName || '—'} · ${t.location || '—'} · ${t.stadium || '—'} · Coach: ${t.coach || t.manager || '—'} · Est. ${t.founded || '—'}`}
+            onEdit={() => openEdit(t)}
+            onDelete={() => {
+              if (confirm('Delete this team?')) deleteRecord('teams', t.id)
+            }}
+          />
         ))}
       </div>
     </div>

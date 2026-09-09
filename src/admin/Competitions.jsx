@@ -1,481 +1,170 @@
-import { useState } from 'react'
-import { useData } from '../context/DataContext.jsx'
+import { useState } from "react";
+import { useData } from "../context/DataContext.jsx";
+import { nextId } from "../utils/helpers.js";
+import { Field, IdField, FormShell, PageHeader, ListCard, inputClass } from "./FormUI.jsx";
+
+const EMPTY = {
+  id: "",
+  name: "",
+  shortName: "",
+  season: "",
+  type: "League",
+  description: "",
+  pointsWin: 3,
+  pointsDraw: 1,
+  pointsLoss: 0,
+  teamIds: [],
+};
 
 export default function Competitions() {
-  const { DB, saveData, showToast } = useData()
+  const { DB, createRecord, updateRecord, deleteRecord, showToast } = useData();
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(EMPTY);
+  const [saving, setSaving] = useState(false);
 
-  const competitions = DB?.competitions || []
+  const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
-  const [showForm, setShowForm] = useState(false)
-  const [editingCompetition, setEditingCompetition] = useState(null)
+  const toggleTeam = (id) => {
+    const teamIds = form.teamIds.includes(id)
+      ? form.teamIds.filter((x) => x !== id)
+      : [...form.teamIds, id];
+    setForm({ ...form, teamIds });
+  };
 
-  const [form, setForm] = useState({
-    name: '',
-    shortName: '',
-    season: '',
-    type: 'League',
-    organizer: '',
-    startDate: '',
-    endDate: '',
-    status: 'Upcoming',
-  })
+  const openAdd = () => {
+    setEditing(null);
+    setForm({ ...EMPTY, id: nextId("c"), teamIds: [] });
+    setShowForm(true);
+  };
 
-  const handleChange = (e) => {
+  const openEdit = (c) => {
+    setEditing(c);
     setForm({
+      id: c.id || "",
+      name: c.name || "",
+      shortName: c.shortName || "",
+      season: c.season || "",
+      type: c.type || "League",
+      description: c.description || "",
+      pointsWin: c.pointsWin ?? 3,
+      pointsDraw: c.pointsDraw ?? 1,
+      pointsLoss: c.pointsLoss ?? 0,
+      teamIds: c.teamIds || [],
+    });
+    setShowForm(true);
+  };
+
+  const reset = () => {
+    setShowForm(false);
+    setEditing(null);
+    setForm(EMPTY);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) return showToast("Name is required", true);
+
+    const record = {
       ...form,
-      [e.target.name]: e.target.value,
-    })
-  }
+      pointsWin: Number(form.pointsWin) || 0,
+      pointsDraw: Number(form.pointsDraw) || 0,
+      pointsLoss: Number(form.pointsLoss) || 0,
+    };
 
-  const resetForm = () => {
-    setForm({
-      name: '',
-      shortName: '',
-      season: '',
-      type: 'League',
-      organizer: '',
-      startDate: '',
-      endDate: '',
-      status: 'Upcoming',
-    })
-
-    setEditingCompetition(null)
-    setShowForm(false)
-  }
-
-  const handleAdd = () => {
-    setEditingCompetition(null)
-
-    setForm({
-      name: '',
-      shortName: '',
-      season: '',
-      type: 'League',
-      organizer: '',
-      startDate: '',
-      endDate: '',
-      status: 'Upcoming',
-    })
-
-    setShowForm(true)
-  }
-
-  const handleEdit = (competition) => {
-    setEditingCompetition(competition)
-
-    setForm({
-      name: competition.name || '',
-      shortName: competition.shortName || '',
-      season: competition.season || '',
-      type: competition.type || 'League',
-      organizer: competition.organizer || '',
-      startDate: competition.startDate || '',
-      endDate: competition.endDate || '',
-      status: competition.status || 'Upcoming',
-    })
-
-    setShowForm(true)
-  }
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-
-    if (!form.name.trim()) {
-      showToast('Competition name is required', 'err')
-      return
-    }
-
-    if (!form.season.trim()) {
-      showToast('Season is required', 'err')
-      return
-    }
-
-    if (editingCompetition) {
-      const updatedCompetitions = competitions.map(
-        (competition) =>
-          competition.id === editingCompetition.id
-            ? {
-                ...competition,
-                ...form,
-              }
-            : competition
-      )
-
-      saveData({
-        ...DB,
-        competitions: updatedCompetitions,
-      })
-
-      showToast('Competition updated successfully')
-    } else {
-      const newCompetition = {
-        id: Date.now(),
-        name: form.name.trim(),
-        shortName: form.shortName.trim(),
-        season: form.season.trim(),
-        type: form.type,
-        organizer: form.organizer.trim(),
-        startDate: form.startDate,
-        endDate: form.endDate,
-        status: form.status,
+    setSaving(true);
+    try {
+      if (editing) {
+        await updateRecord("competitions", editing.id, record);
+        showToast("Competition updated");
+      } else {
+        await createRecord("competitions", record);
+        showToast("Competition created");
       }
-
-      saveData({
-        ...DB,
-        competitions: [
-          ...competitions,
-          newCompetition,
-        ],
-      })
-
-      showToast('Competition added successfully')
+      reset();
+    } catch (err) {
+      showToast(err.message || "Save failed", true);
+    } finally {
+      setSaving(false);
     }
-
-    resetForm()
-  }
-
-  const handleDelete = (id) => {
-    const confirmed = window.confirm(
-      'Are you sure you want to delete this competition?'
-    )
-
-    if (!confirmed) return
-
-    saveData({
-      ...DB,
-      competitions: competitions.filter(
-        (competition) => competition.id !== id
-      ),
-    })
-
-    showToast('Competition deleted successfully')
-  }
+  };
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-5xl mx-auto">
+      <PageHeader
+        title="Competitions"
+        count={DB.competitions?.length || 0}
+        onAdd={openAdd}
+        addLabel="+ Add Competition"
+      />
 
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-
-        <div>
-          <h1 className="text-3xl font-bold text-[#123B2A]">
-            Competitions
-          </h1>
-
-          <p className="mt-2 text-gray-600">
-            Manage competitions and tournaments.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleAdd}
-          className="bg-[#123B2A] text-white px-5 py-3 rounded-lg font-semibold hover:bg-[#1E7245]"
-        >
-          + Add Competition
-        </button>
-
-      </div>
-
-      {/* Form */}
       {showForm && (
-        <div className="bg-white border border-gray-200 rounded-xl p-6 mb-8">
-
-          <h2 className="text-xl font-bold text-[#123B2A] mb-5">
-            {editingCompetition
-              ? 'Edit Competition'
-              : 'Add New Competition'}
-          </h2>
-
-          <form onSubmit={handleSubmit}>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-              {/* Name */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-semibold mb-2">
-                  Competition Name *
+        <FormShell
+          title={editing ? `Edit Competition — ${editing.id}` : "Add Competition"}
+          onSubmit={handleSubmit}
+          onCancel={reset}
+          saving={saving}
+        >
+          <IdField value={form.id} />
+          <Field label="Name *">
+            <input value={form.name} onChange={set("name")} className={inputClass} required />
+          </Field>
+          <Field label="Short Name">
+            <input value={form.shortName} onChange={set("shortName")} className={inputClass} />
+          </Field>
+          <Field label="Season">
+            <input value={form.season} onChange={set("season")} className={inputClass} placeholder="2024/25" />
+          </Field>
+          <Field label="Type">
+            <select value={form.type} onChange={set("type")} className={inputClass}>
+              <option>League</option>
+              <option>Cup</option>
+              <option>Friendly</option>
+            </select>
+          </Field>
+          <Field label="Points for Win">
+            <input type="number" value={form.pointsWin} onChange={set("pointsWin")} className={inputClass} />
+          </Field>
+          <Field label="Points for Draw">
+            <input type="number" value={form.pointsDraw} onChange={set("pointsDraw")} className={inputClass} />
+          </Field>
+          <Field label="Points for Loss">
+            <input type="number" value={form.pointsLoss} onChange={set("pointsLoss")} className={inputClass} />
+          </Field>
+          <Field label="Description" full>
+            <textarea value={form.description} onChange={set("description")} className={inputClass} rows="3" />
+          </Field>
+          <Field label="Teams in competition" full>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border border-gray-200 rounded-lg p-3 max-h-48 overflow-auto">
+              {(DB.teams || []).map((t) => (
+                <label key={t.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.teamIds.includes(t.id)}
+                    onChange={() => toggleTeam(t.id)}
+                  />
+                  {t.name}
                 </label>
-
-                <input
-                  type="text"
-                  name="name"
-                  value={form.name}
-                  onChange={handleChange}
-                  placeholder="Example: Sindhuli District League"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:border-[#1E7245]"
-                />
-              </div>
-
-              {/* Short Name */}
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Short Name
-                </label>
-
-                <input
-                  type="text"
-                  name="shortName"
-                  value={form.shortName}
-                  onChange={handleChange}
-                  placeholder="Example: SDL"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:border-[#1E7245]"
-                />
-              </div>
-
-              {/* Season */}
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Season *
-                </label>
-
-                <input
-                  type="text"
-                  name="season"
-                  value={form.season}
-                  onChange={handleChange}
-                  placeholder="Example: 2026"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:border-[#1E7245]"
-                />
-              </div>
-
-              {/* Type */}
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Competition Type
-                </label>
-
-                <select
-                  name="type"
-                  value={form.type}
-                  onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:border-[#1E7245]"
-                >
-                  <option value="League">League</option>
-                  <option value="Cup">Cup</option>
-                  <option value="Tournament">
-                    Tournament
-                  </option>
-                  <option value="Friendly">
-                    Friendly
-                  </option>
-                </select>
-              </div>
-
-              {/* Organizer */}
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Organizer
-                </label>
-
-                <input
-                  type="text"
-                  name="organizer"
-                  value={form.organizer}
-                  onChange={handleChange}
-                  placeholder="Example: ANFA / District FA"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:border-[#1E7245]"
-                />
-              </div>
-
-              {/* Start Date */}
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Start Date
-                </label>
-
-                <input
-                  type="date"
-                  name="startDate"
-                  value={form.startDate}
-                  onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:border-[#1E7245]"
-                />
-              </div>
-
-              {/* End Date */}
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  End Date
-                </label>
-
-                <input
-                  type="date"
-                  name="endDate"
-                  value={form.endDate}
-                  onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:border-[#1E7245]"
-                />
-              </div>
-
-              {/* Status */}
-              <div>
-                <label className="block text-sm font-semibold mb-2">
-                  Status
-                </label>
-
-                <select
-                  name="status"
-                  value={form.status}
-                  onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 outline-none focus:border-[#1E7245]"
-                >
-                  <option value="Upcoming">Upcoming</option>
-                  <option value="Ongoing">Ongoing</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Cancelled">Cancelled</option>
-                </select>
-              </div>
-
+              ))}
+              {!DB.teams?.length && <p className="text-sm text-gray-500">No teams yet. Add teams first.</p>}
             </div>
-
-            {/* Buttons */}
-            <div className="flex gap-3 mt-6">
-
-              <button
-                type="submit"
-                className="bg-[#1E7245] text-white px-5 py-3 rounded-lg font-semibold"
-              >
-                {editingCompetition
-                  ? 'Update Competition'
-                  : 'Save Competition'}
-              </button>
-
-              <button
-                type="button"
-                onClick={resetForm}
-                className="border border-gray-300 px-5 py-3 rounded-lg font-semibold"
-              >
-                Cancel
-              </button>
-
-            </div>
-
-          </form>
-
-        </div>
+          </Field>
+        </FormShell>
       )}
 
-      {/* Competition List */}
-      <div className="space-y-4">
-
-        {competitions.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-xl p-10 text-center">
-
-            <h2 className="text-xl font-semibold text-[#123B2A]">
-              No competitions yet
-            </h2>
-
-            <p className="text-gray-500 mt-2">
-              Click "Add Competition" to create your first competition.
-            </p>
-
-          </div>
-        ) : (
-          competitions.map((competition) => (
-            <div
-              key={competition.id}
-              className="bg-white border border-gray-200 rounded-xl p-5"
-            >
-
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-
-                <div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-
-                    <h2 className="text-xl font-bold text-[#123B2A]">
-                      {competition.name}
-                    </h2>
-
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        competition.status === 'Ongoing'
-                          ? 'bg-green-100 text-green-700'
-                          : competition.status === 'Completed'
-                          ? 'bg-gray-100 text-gray-600'
-                          : competition.status === 'Cancelled'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-blue-100 text-blue-700'
-                      }`}
-                    >
-                      {competition.status || 'Upcoming'}
-                    </span>
-
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 mt-2 text-sm text-gray-500">
-
-                    {competition.shortName && (
-                      <span>
-                        {competition.shortName}
-                      </span>
-                    )}
-
-                    {competition.season && (
-                      <span>
-                        • Season {competition.season}
-                      </span>
-                    )}
-
-                    {competition.type && (
-                      <span>
-                        • {competition.type}
-                      </span>
-                    )}
-
-                    {competition.organizer && (
-                      <span>
-                        • {competition.organizer}
-                      </span>
-                    )}
-
-                  </div>
-
-                  {(competition.startDate ||
-                    competition.endDate) && (
-                    <p className="text-sm text-gray-500 mt-2">
-                      {competition.startDate || 'TBA'}
-                      {' → '}
-                      {competition.endDate || 'TBA'}
-                    </p>
-                  )}
-
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-2">
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleEdit(competition)
-                    }
-                    className="border border-[#1E7245] text-[#1E7245] px-4 py-2 rounded-lg font-semibold"
-                  >
-                    Edit
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleDelete(competition.id)
-                    }
-                    className="border border-red-500 text-red-500 px-4 py-2 rounded-lg font-semibold"
-                  >
-                    Delete
-                  </button>
-
-                </div>
-
-              </div>
-
-            </div>
-          ))
-        )}
-
+      <div className="space-y-2">
+        {DB.competitions?.map((c) => (
+          <ListCard
+            key={c.id}
+            title={c.name}
+            subtitle={`ID: ${c.id} · ${c.shortName || "—"} · ${c.season || "—"} · ${c.type || "—"} · ${c.teamIds?.length || 0} teams · ${c.pointsWin}/${c.pointsDraw}/${c.pointsLoss} pts`}
+            onEdit={() => openEdit(c)}
+            onDelete={() => {
+              if (confirm("Delete this competition?")) deleteRecord("competitions", c.id);
+            }}
+          />
+        ))}
       </div>
-
     </div>
-  )
+  );
 }

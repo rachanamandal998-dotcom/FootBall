@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { demoData } from '../data/demoData.js'
 import { STORAGE_KEY } from '../utils/helpers.js'
+import { apiCreate, apiUpdate, apiDelete, apiGetAllCollections } from '../api/client.js'
 
 export const DataContext = createContext(null)
 
@@ -10,30 +11,109 @@ export const useData = () => {
   return ctx
 }
 
+function ensureCollections(d = {}) {
+  return {
+    ...d,
+    teams: d.teams || [],
+    players: d.players || [],
+    matches: d.matches || [],
+    competitions: d.competitions || [],
+    news: d.news || [],
+    injuries: d.injuries || [],
+    training: d.training || [],
+    users: d.users || [],
+    staff: d.staff || [],
+    transfers: d.transfers || [],
+    contracts: d.contracts || [],
+    meta: d.meta || {},
+  }
+}
+
+function persist(d) {
+  const next = ensureCollections({ ...d, meta: { ...d.meta, lastUpdated: Date.now() } })
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  return next
+}
+
 export function DataProvider({ children }){
   const [DB, setDB] = useState(null)
   const [adminAuthed, setAdminAuthed] = useState(false)
   const [navOpen, setNavOpen] = useState(false)
-  const [route, setRoute] = useState({ view:'home' }) // for old go() compatibility if you still use it
+  const [route, setRoute] = useState({ view:'home' })
   const [toast, setToast] = useState(null)
 
   useEffect(()=>{
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if(saved){ setDB(JSON.parse(saved)) }
-    else { const d=demoData(); setDB(d); localStorage.setItem(STORAGE_KEY, JSON.stringify(d)) }
+    let cancelled = false
+    const bootstrap = async () => {
+      let local = ensureCollections(demoData())
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY)
+        if (saved) local = ensureCollections({ ...local, ...JSON.parse(saved) })
+      } catch {
+        local = ensureCollections(demoData())
+      }
+      if (!cancelled) setDB(local)
+
+      try {
+        const remote = await apiGetAllCollections()
+        if (cancelled || !remote || !Object.keys(remote).length) return
+        const merged = persist({ ...local, ...remote })
+        if (!cancelled) setDB(merged)
+      } catch {
+        // API is optional; localStorage remains the working copy
+      }
+    }
+    bootstrap()
+    return () => { cancelled = true }
   },[])
 
   const saveData = (d) => {
-    const next = {...d, meta:{...d.meta, lastUpdated: Date.now()} }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-    setDB({...next})
+    setDB(persist(d))
+  }
+
+  const createRecord = async (collection, record) => {
+    const next = persist({ ...DB, [collection]: [...(DB[collection] || []), record] })
+    setDB(next)
+    try {
+      await apiCreate(collection, record)
+    } catch (err) {
+      console.warn('API create failed, saved locally:', err.message)
+    }
+    return record
+  }
+
+  const updateRecord = async (collection, id, record) => {
+    const next = persist({
+      ...DB,
+      [collection]: (DB[collection] || []).map((item) =>
+        item.id === id ? { ...item, ...record, id } : item
+      ),
+    })
+    setDB(next)
+    try {
+      await apiUpdate(collection, id, { ...record, id })
+    } catch (err) {
+      console.warn('API update failed, saved locally:', err.message)
+    }
+  }
+
+  const deleteRecord = async (collection, id) => {
+    const next = persist({
+      ...DB,
+      [collection]: (DB[collection] || []).filter((item) => item.id !== id),
+    })
+    setDB(next)
+    try {
+      await apiDelete(collection, id)
+    } catch (err) {
+      console.warn('API delete failed, removed locally:', err.message)
+    }
   }
 
   const showToast = (msg,isErr=false) => {
     setToast({msg,isErr}); setTimeout(()=>setToast(null),2600)
   }
 
-  // --- helpers ---
   const team = (id) => DB?.teams.find(t=>t.id===id)
   const player = (id) => DB?.players.find(p=>p.id===id)
   const teamPlayers = (id) => DB?.players.filter(p=>p.teamId===id) || []
@@ -42,7 +122,7 @@ export function DataProvider({ children }){
     if(!DB) return []
     const comp = DB.competitions.find(c=>c.id===compId)
     if(!comp) return []
-    const rows={}; comp.teamIds.forEach(tid=>{rows[tid]={teamId:tid,played:0,won:0,draw:0,lost:0,gf:0,ga:0,pts:0}})
+    const rows={}; (comp.teamIds || []).forEach(tid=>{rows[tid]={teamId:tid,played:0,won:0,draw:0,lost:0,gf:0,ga:0,pts:0}})
     DB.matches.filter(m=>m.compId===compId && m.status==='Finished').forEach(m=>{
       const h=rows[m.homeTeamId], a=rows[m.awayTeamId]; if(!h||!a) return
       h.played++; a.played++; h.gf+=m.homeScore; h.ga+=m.awayScore; a.gf+=m.awayScore; a.ga+=m.homeScore
@@ -58,7 +138,7 @@ export function DataProvider({ children }){
     if(!DB) return s
     DB.matches.forEach(m=>{
       if(m.status!=='Finished') return
-      m.events.forEach(ev=>{
+      ;(m.events || []).forEach(ev=>{
         if(ev.type==='goal' && ev.scorerId===pid) s.goals++
         if(ev.assistId===pid) s.assists++
         if(ev.type==='yellow' && ev.scorerId===pid) s.yellow++
@@ -80,9 +160,9 @@ export function DataProvider({ children }){
   if(!DB) return <div className="p-20 text-center font-barlow text-lg">Loading Sindhuli Football Clubhouse...</div>
 
   return (
-    <DataContext.Provider value={{ DB, saveData, team, player, teamPlayers, standingsFor, playerStats, leagueLeaders, adminAuthed, setAdminAuthed, route, setRoute, go, navOpen, setNavOpen, showToast, toast }}>
+    <DataContext.Provider value={{ DB, saveData, createRecord, updateRecord, deleteRecord, team, player, teamPlayers, standingsFor, playerStats, leagueLeaders, adminAuthed, setAdminAuthed, route, setRoute, go, navOpen, setNavOpen, showToast, toast }}>
       {children}
-      {toast && <div className={`fixed bottom-5 right-5 bg-[#12181A] text-[#F5F2E8] px-4 py-3 rounded- text-sm z-[300] border-l- ${toast.isErr?'border-l-[#A6372B]':'border-l-[#1E7245]'} shadow-xl`}>{toast.msg}</div>}
+      {toast && <div className={`fixed bottom-5 right-5 bg-[#12181A] text-[#F5F2E8] px-4 py-3 rounded-lg text-sm z-[300] border-l-4 ${toast.isErr?'border-l-[#A6372B]':'border-l-[#1E7245]'} shadow-xl`}>{toast.msg}</div>}
     </DataContext.Provider>
   )
 }
