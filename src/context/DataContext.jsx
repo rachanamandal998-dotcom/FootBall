@@ -37,7 +37,6 @@ function persist(d) {
 
 export function DataProvider({ children }){
   const [DB, setDB] = useState(null)
-  const [adminAuthed, setAdminAuthed] = useState(false)
   const [navOpen, setNavOpen] = useState(false)
   const [route, setRoute] = useState({ view:'home' })
   const [toast, setToast] = useState(null)
@@ -160,7 +159,7 @@ export function DataProvider({ children }){
   if(!DB) return <div className="p-20 text-center font-barlow text-lg">Loading Sindhuli Football Clubhouse...</div>
 
   return (
-    <DataContext.Provider value={{ DB, saveData, createRecord, updateRecord, deleteRecord, team, player, teamPlayers, standingsFor, playerStats, leagueLeaders, adminAuthed, setAdminAuthed, route, setRoute, go, navOpen, setNavOpen, showToast, toast }}>
+    <DataContext.Provider value={{ DB, saveData, createRecord, updateRecord, deleteRecord, team, player, teamPlayers, standingsFor, playerStats, leagueLeaders, route, setRoute, go, navOpen, setNavOpen, showToast, toast }}>
       {children}
       {toast && <div className={`fixed bottom-5 right-5 bg-[#12181A] text-[#F5F2E8] px-4 py-3 rounded-lg text-sm z-[300] border-l-4 ${toast.isErr?'border-l-[#A6372B]':'border-l-[#1E7245]'} shadow-xl`}>{toast.msg}</div>}
     </DataContext.Provider>

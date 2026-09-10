@@ -1,13 +1,19 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useData } from '../context/DataContext.jsx'
-import { nextId } from '../utils/helpers.js'
-import { Field, IdField, FormShell, PageHeader, ListCard, inputClass } from './FormUI.jsx'
+import {
+  createUserRequest,
+  deleteUserRequest,
+  fetchUsers,
+  updateUserRequest,
+} from '../api/auth.js'
+import { Field, FormShell, PageHeader, ListCard, inputClass } from './FormUI.jsx'
 
-const EMPTY = { id: '', username: '', displayName: '', email: '', role: 'admin', password: '' }
+const EMPTY = { name: '', email: '', role: 'user', password: '' }
 
 export default function Users() {
-  const { DB, createRecord, updateRecord, deleteRecord, showToast } = useData()
-  const users = DB.users || []
+  const { showToast } = useData()
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(EMPTY)
@@ -15,20 +21,33 @@ export default function Users() {
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value })
 
+  const load = async () => {
+    try {
+      const data = await fetchUsers()
+      setUsers(Array.isArray(data) ? data : [])
+    } catch (err) {
+      showToast(err.message || 'Unable to load users', true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
   const openAdd = () => {
     setEditing(null)
-    setForm({ ...EMPTY, id: nextId('u') })
+    setForm(EMPTY)
     setShowForm(true)
   }
 
   const openEdit = (user) => {
     setEditing(user)
     setForm({
-      id: user.id || '',
-      username: user.username || '',
-      displayName: user.displayName || '',
+      name: user.name || '',
       email: user.email || '',
-      role: user.role || 'admin',
+      role: user.role === 'admin' ? 'admin' : 'user',
       password: '',
     })
     setShowForm(true)
@@ -42,29 +61,31 @@ export default function Users() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.username.trim()) return showToast('Username is required', true)
+    if (!form.name.trim()) return showToast('Name is required', true)
+    if (!form.email.trim()) return showToast('Email is required', true)
     if (!editing && !form.password.trim()) return showToast('Password is required for new users', true)
+    if (form.password && form.password.length < 8) {
+      return showToast('Password must be at least 8 characters', true)
+    }
 
-    const record = {
-      username: form.username.trim(),
-      displayName: form.displayName.trim(),
+    const payload = {
+      name: form.name.trim(),
       email: form.email.trim(),
       role: form.role,
-      id: form.id,
     }
-    if (form.password.trim()) record.password = form.password
-    else if (editing?.password) record.password = editing.password
+    if (form.password.trim()) payload.password = form.password
 
     setSaving(true)
     try {
       if (editing) {
-        await updateRecord('users', editing.id, record)
+        await updateUserRequest(editing.id, payload)
         showToast('User updated')
       } else {
-        await createRecord('users', record)
+        await createUserRequest(payload)
         showToast('User created')
       }
       reset()
+      await load()
     } catch (err) {
       showToast(err.message || 'Save failed', true)
     } finally {
@@ -78,26 +99,21 @@ export default function Users() {
 
       {showForm && (
         <FormShell
-          title={editing ? `Edit User — ${editing.id}` : 'Add User'}
+          title={editing ? `Edit User — ${editing.email}` : 'Add User'}
           onSubmit={handleSubmit}
           onCancel={reset}
           saving={saving}
         >
-          <IdField value={form.id} />
-          <Field label="Username *">
-            <input value={form.username} onChange={set('username')} className={inputClass} required />
+          <Field label="Name *">
+            <input value={form.name} onChange={set('name')} className={inputClass} required />
           </Field>
-          <Field label="Display Name">
-            <input value={form.displayName} onChange={set('displayName')} className={inputClass} />
-          </Field>
-          <Field label="Email">
-            <input type="email" value={form.email} onChange={set('email')} className={inputClass} />
+          <Field label="Email *">
+            <input type="email" value={form.email} onChange={set('email')} className={inputClass} required />
           </Field>
           <Field label="Role">
             <select value={form.role} onChange={set('role')} className={inputClass}>
+              <option value="user">User</option>
               <option value="admin">Admin</option>
-              <option value="manager">Manager</option>
-              <option value="editor">Editor</option>
             </select>
           </Field>
           <Field label={editing ? 'Password (leave blank to keep current)' : 'Password *'} full>
@@ -106,20 +122,31 @@ export default function Users() {
         </FormShell>
       )}
 
-      <div className="space-y-2">
-        {users.map((user) => (
-          <ListCard
-            key={user.id}
-            title={user.displayName || user.username}
-            subtitle={`ID: ${user.id} · @${user.username} · ${user.email || '—'} · ${user.role || 'admin'}`}
-            onEdit={() => openEdit(user)}
-            onDelete={() => {
-              if (confirm('Delete this user?')) deleteRecord('users', user.id)
-            }}
-          />
-        ))}
-        {!users.length && <p className="text-sm text-gray-500">No users yet.</p>}
-      </div>
+      {loading ? (
+        <p className="text-sm text-gray-500">Loading users...</p>
+      ) : (
+        <div className="space-y-2">
+          {users.map((user) => (
+            <ListCard
+              key={user.id}
+              title={user.name}
+              subtitle={`${user.email} · ${user.role}`}
+              onEdit={() => openEdit(user)}
+              onDelete={async () => {
+                if (!confirm('Delete this user?')) return
+                try {
+                  await deleteUserRequest(user.id)
+                  showToast('User deleted')
+                  await load()
+                } catch (err) {
+                  showToast(err.message || 'Delete failed', true)
+                }
+              }}
+            />
+          ))}
+          {!users.length && <p className="text-sm text-gray-500">No users yet.</p>}
+        </div>
+      )}
     </div>
   )
 }

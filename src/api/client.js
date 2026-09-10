@@ -1,3 +1,5 @@
+import { getStoredToken, clearToken } from "./auth.js";
+
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 const PATHS = {
@@ -8,7 +10,6 @@ const PATHS = {
   competitions: "/competitions",
   injuries: "/injuries",
   training: "/training",
-  users: "/users",
 };
 
 export function normalizeDoc(doc) {
@@ -19,12 +20,15 @@ export function normalizeDoc(doc) {
 }
 
 async function request(path, options = {}) {
+  const token = getStoredToken();
   const res = await fetch(`${API_BASE}${path}`, {
+    credentials: "include",
+    ...options,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers || {}),
     },
-    ...options,
   });
   const text = await res.text();
   let data = null;
@@ -34,6 +38,9 @@ async function request(path, options = {}) {
     data = text;
   }
   if (!res.ok) {
+    if (res.status === 401 && token && path !== "/auth/me") {
+      clearToken();
+    }
     const msg = data?.msg || data?.message || res.statusText || "Request failed";
     throw new Error(msg);
   }

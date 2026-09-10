@@ -1,5 +1,5 @@
-import { NavLink } from 'react-router-dom'
-import { useData } from '../context/DataContext.jsx'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 
 const links = [
   { name: 'Dashboard', path: '/admin' },
@@ -15,7 +15,13 @@ const links = [
 ]
 
 export default function AdminSidebar() {
-  const { setAdminAuthed } = useData()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    await logout()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <aside className="w-64 min-h-screen bg-[#123B2A] text-white p-5 shrink-0">
@@ -30,6 +36,9 @@ export default function AdminSidebar() {
           </div>
         </div>
         <p className="text-sm text-white/60 mt-4">Manager Panel</p>
+        {user?.name ? (
+          <p className="text-xs text-[#E4CD8A] mt-2 truncate">{user.name}</p>
+        ) : null}
       </div>
 
       <nav className="space-y-1">
@@ -53,7 +62,7 @@ export default function AdminSidebar() {
 
       <div className="mt-10 pt-5 border-t border-white/10 space-y-3">
         <button
-          onClick={() => setAdminAuthed(false)}
+          onClick={handleLogout}
           className="w-full text-left px-4 py-2 rounded-lg text-white/70 hover:bg-white/10 hover:text-white text-sm"
         >
           Logout

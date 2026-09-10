@@ -1,8 +1,10 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useData } from "../context/DataContext.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Topbar() {
-  const { navOpen, setNavOpen, adminAuthed, setAdminAuthed } = useData();
+  const { navOpen, setNavOpen } = useData();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const links = [
@@ -14,36 +16,6 @@ export default function Topbar() {
     ["/competitions", "Competitions"],
     ["/news", "News"],
   ];
-
-  if (adminAuthed) {
-    return (
-      <div className="sticky top-0 z-50 bg-[#0E3B2E] border-b border-white/10">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5 text-[#F5F2E8]">
-            <div className="w-8 h-8 rounded-full border-2 border-[#E4CD8A] bg-[conic-gradient(from_140deg,#C7A344_0deg_60deg,#F5F2E8_60deg_120deg,#0E3B2E_120deg_180deg,#C7A344_180deg_240deg,#F5F2E8_240deg_300deg,#0E3B2E_300deg_360deg)] animate-spin-slow" />
-            <b className="font-barlow font-extrabold text-base tracking-[0.3px]">
-              SINDHULI FC CLUBHOUSE
-            </b>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[#E9E4D2] text-xs hidden md:flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#C7A344]" />
-              Admin Mode
-            </span>
-            <button
-              onClick={() => {
-                setAdminAuthed(false);
-                navigate("/");
-              }}
-              className="border border-white/30 text-[#F5F2E8] px-4 py-2 rounded-sm text-[13px] font-semibold hover:border-[#E4CD8A] hover:text-[#E4CD8A] transition-colors"
-            >
-              Exit to Site
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="sticky top-0 z-50 bg-[#0E3B2E] border-b border-white/10">
@@ -89,12 +61,40 @@ export default function Topbar() {
         </nav>
 
         <div className="flex items-center gap-2.5 shrink-0">
-          <button
-            onClick={() => navigate("/admin")}
-            className="bg-[#C7A344] hover:bg-[#E4CD8A] text-[#12181A] font-semibold text-[13.5px] px-4 py-2 rounded-sm transition-colors"
-          >
-            Manager Login
-          </button>
+          {user ? (
+            <>
+              <button
+                onClick={() => navigate("/admin")}
+                className="bg-[#C7A344] hover:bg-[#E4CD8A] text-[#12181A] font-semibold text-[13.5px] px-4 py-2 rounded-sm transition-colors"
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={async () => {
+                  await logout();
+                  navigate("/");
+                }}
+                className="hidden sm:inline-flex border border-white/30 text-[#F5F2E8] px-3 py-2 rounded-sm text-[13px] font-semibold hover:border-[#E4CD8A] hover:text-[#E4CD8A]"
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => navigate("/login")}
+                className="bg-[#C7A344] hover:bg-[#E4CD8A] text-[#12181A] font-semibold text-[13.5px] px-4 py-2 rounded-sm transition-colors"
+              >
+                Manager Login
+              </button>
+              <button
+                onClick={() => navigate("/signup")}
+                className="hidden sm:inline-flex border border-white/30 text-[#F5F2E8] px-3 py-2 rounded-sm text-[13px] font-semibold hover:border-[#E4CD8A]"
+              >
+                Sign up
+              </button>
+            </>
+          )}
           <button
             className="lg:hidden text-[#F5F2E8] text-xl leading-none"
             onClick={() => setNavOpen(!navOpen)}

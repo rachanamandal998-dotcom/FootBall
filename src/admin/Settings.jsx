@@ -1,9 +1,11 @@
 
 import { useState } from 'react'
 import { useData } from '../context/DataContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 
 export default function Settings() {
   const { DB, saveData, showToast } = useData()
+  const { user } = useAuth()
 
   const meta = DB?.meta || {}
 
@@ -15,7 +17,6 @@ export default function Settings() {
     email: meta.email || '',
     phone: meta.phone || '',
     website: meta.website || '',
-    adminPass: meta.adminPass || 'admin123',
   })
 
   const handleChange = (e) => {
@@ -29,12 +30,7 @@ export default function Settings() {
     e.preventDefault()
 
     if (!form.clubName.trim()) {
-      showToast('Club name is required', 'err')
-      return
-    }
-
-    if (!form.adminPass.trim()) {
-      showToast('Admin password is required', 'err')
+      showToast('Club name is required', true)
       return
     }
 
@@ -178,31 +174,19 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Admin Settings */}
+        {/* Signed-in account */}
         <div className="bg-white border border-gray-200 rounded-xl p-6">
-
           <h2 className="text-xl font-bold text-[#123B2A] mb-5">
-            Admin Settings
+            Signed-in account
           </h2>
-
-          <div>
-            <label className="block text-sm font-semibold mb-2">
-              Admin Password
-            </label>
-
-            <input
-              type="password"
-              name="adminPass"
-              value={form.adminPass}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3"
-            />
-
-            <p className="text-sm text-gray-500 mt-2">
-              This is currently used by your demo admin login.
-            </p>
+          <div className="space-y-2 text-sm">
+            <p><span className="text-gray-500">Name:</span> <span className="font-semibold">{user?.name || '—'}</span></p>
+            <p><span className="text-gray-500">Email:</span> <span className="font-semibold">{user?.email || '—'}</span></p>
+            <p><span className="text-gray-500">Role:</span> <span className="font-semibold capitalize">{user?.role || '—'}</span></p>
           </div>
-
+          <p className="text-sm text-gray-500 mt-4">
+            Authentication is managed by your account. Use Signup/Login instead of a shared admin password.
+          </p>
         </div>
 
         {/* Save */}
