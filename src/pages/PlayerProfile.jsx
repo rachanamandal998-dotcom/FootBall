@@ -1,157 +1,84 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useData } from "../context/DataContext.jsx";
-import { fmtDate, ageFromDOB, initials } from "../utils/helpers.js";
-import MatchCard from "../components/MatchCard.jsx";
 import EmptyState from "../components/EmptyState.jsx";
+import MatchCard from "../components/MatchCard.jsx";
+import { ageFromDOB, fmtDate, playerName } from "../utils/helpers.js";
 
 export default function PlayerProfile() {
   const { id } = useParams();
-  const navigate = useNavigate();
-  const { DB, team, player, playerStats } = useData();
+  const { DB, playerStats, team } = useData();
+  const p = DB.players.find((x) => x.id === id);
   const [tab, setTab] = useState("overview");
-
-  const p = player(id);
-  if (!p)
-    return (
-      <div className="max-w-4xl mx-auto px-6 py-20 text-center">
-        <EmptyState big="Player not found." />
-        <button
-          onClick={() => navigate("/players")}
-          className="text-[#C7A344] underline mt-3 text-sm"
-        >
-          Back to Players
-        </button>
-      </div>
-    );
-
+  if (!p) return <EmptyState big="Player not found." />;
   const t = team(p.teamId);
   const s = playerStats(p.id);
-  const pMatches = DB.matches.filter(
-    (m) =>
-      m.status === "Finished" &&
-      (m.homeTeamId === p.teamId || m.awayTeamId === p.teamId),
-  );
-  const pInjuries = DB.injuries.filter((i) => i.playerId === p.id);
+  const injuries = (DB.injuries || []).filter((i) => i.playerId === p.id);
+  const matches = DB.matches.filter((m) => m.homeTeamId === p.teamId || m.awayTeamId === p.teamId || (m.events || []).some((e) => [e.playerId, e.scorerId, e.assistId, e.playerOnId, e.playerOffId].includes(p.id)));
 
   return (
-    <>
-      <section className="bg-gradient-to-br from-[#0E3B2E] to-[#0A2A20] text-[#F5F2E8] py-10">
-        <div className="max-w-5xl mx-auto px-6 flex gap-6 items-center flex-wrap">
-          <div className="w-24 h-24 rounded-full bg-[#C7A344] text-[#12181A] flex items-center justify-center font-barlow font-extrabold text-3xl border-4 border-white/20 shrink-0">
-            {initials(p.displayName)}
-          </div>
+    <section className="pb-16">
+      <div className="bg-pitch text-ivory py-10">
+        <div className="max-w-5xl mx-auto px-6 flex flex-col md:flex-row gap-8 items-center">
+          <img src={p.photo} alt="" className="w-40 h-40 rounded-2xl object-cover ring-4 ring-gold/40 shadow-2xl" />
           <div>
-            <div className="text-[#E4CD8A] text-sm font-semibold">
-              #{p.jersey} · {p.position}
-            </div>
-            <h1 className="font-barlow text-4xl leading-none mt-1.5">{p.displayName}</h1>
-            <div className="mt-2 text-[#E9E4D2]/80 text-sm">
-              {t?.name} · {p.nationality} · Age {ageFromDOB(p.dob)}
-            </div>
-            <button
-              onClick={() => navigate("/players")}
-              className="mt-3 text-xs border border-white/20 px-3 py-1.5 rounded-sm hover:border-[#E4CD8A] hover:text-[#E4CD8A] transition-colors"
-            >
-              ← Back to Players
-            </button>
+            <div className="text-gold-soft text-sm">#{p.jersey} · {p.position}{p.secondaryPosition ? ` / ${p.secondaryPosition}` : ""}</div>
+            <h1 className="font-display text-5xl font-extrabold">{playerName(p)}</h1>
+            <p className="mt-2 text-white/70">{t?.name} · {p.squad} · {p.status}</p>
           </div>
         </div>
-      </section>
-      <section className="py-8">
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="flex gap-1 border-b border-[#e4dfcd] mb-6 flex-wrap">
-            {["overview", "statistics", "matches", "injuries"].map((k) => (
-              <div
-                key={k}
-                onClick={() => setTab(k)}
-                className={`px-4 py-2.5 text-[13.5px] font-semibold cursor-pointer border-b-2 transition-colors ${
-                  tab === k
-                    ? "text-[#0E3B2E] border-[#C7A344]"
-                    : "text-[#2A3532]/60 border-transparent hover:text-[#2A3532]"
-                }`}
-              >
-                {k[0].toUpperCase() + k.slice(1)}
+      </div>
+      <div className="max-w-5xl mx-auto px-6">
+        <div className="flex gap-2 mt-6 border-b">
+          {["overview", "statistics", "matches", "injuries"].map((k) => (
+            <button key={k} onClick={() => setTab(k)} className={`px-4 py-2 text-sm font-semibold border-b-2 ${tab === k ? "border-gold" : "border-transparent text-ink/50"}`}>{k}</button>
+          ))}
+        </div>
+        {tab === "overview" && (
+          <div className="grid md:grid-cols-2 gap-4 mt-6">
+            <Fact k="Full name" v={p.name || playerName(p)} />
+            <Fact k="Display name" v={p.displayName} />
+            <Fact k="Date of birth" v={`${fmtDate(p.dob)} (${ageFromDOB(p.dob)} yrs)`} />
+            <Fact k="Nationality" v={p.nationality} />
+            <Fact k="Country of birth" v={p.countryOfBirth} />
+            <Fact k="Height / Weight" v={`${p.height || "—"} cm / ${p.weight || "—"} kg`} />
+            <Fact k="Preferred foot" v={p.preferredFoot} />
+            <Fact k="Team" v={t ? <Link to={`/teams/${t.id}`} className="text-turf font-semibold">{t.name}</Link> : "—"} />
+            <Fact k="Date joined" v={fmtDate(p.dateJoined)} />
+            <Fact k="Contract" v={`${fmtDate(p.contractStart)} – ${fmtDate(p.contractEnd)} (${p.contractStatus || "Active"})`} />
+          </div>
+        )}
+        {tab === "statistics" && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
+            {[["Matches", s.apps], ["Starts", s.starts], ["Minutes", s.minutes], ["Goals", s.goals], ["Assists", s.assists], ["Yellow", s.yellow], ["Red", s.red], ["Clean sheets", s.cleanSheets]].map(([k, v]) => (
+              <div key={k} className="bg-white border p-4"><div className="text-xs text-ink/50">{k}</div><div className="font-display text-3xl">{v}</div></div>
+            ))}
+          </div>
+        )}
+        {tab === "matches" && (
+          <div className="grid md:grid-cols-2 gap-4 mt-6">{matches.map((m) => <MatchCard key={m.id} m={m} />)}</div>
+        )}
+        {tab === "injuries" && (
+          <div className="mt-6 space-y-3">
+            {!injuries.length && <EmptyState big="No injury records." />}
+            {injuries.map((i) => (
+              <div key={i.id} className="bg-white border p-4">
+                <div className="font-semibold">{i.type} · {i.status}</div>
+                <div className="text-sm text-ink/60">{fmtDate(i.date)} · expected return {fmtDate(i.expectedReturn)}</div>
               </div>
             ))}
           </div>
+        )}
+      </div>
+    </section>
+  );
+}
 
-          {tab === "overview" && (
-            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {[
-                ["Full Name", p.firstName + " " + p.lastName],
-                ["DOB", fmtDate(p.dob)],
-                ["Nationality", p.nationality],
-                ["Height", p.height + " cm"],
-                ["Weight", p.weight + " kg"],
-                ["Position", p.position],
-                ["Team", t?.name || "—"],
-                ["Status", p.status],
-                ["Contract", fmtDate(p.contractEnd)],
-              ].map(([l, v]) => (
-                <div key={l} className="bg-white border border-[#e4dfcd] p-3.5">
-                  <div className="text-[10px] tracking-[0.5px] text-[#9a9482] font-semibold">
-                    {l.toUpperCase()}
-                  </div>
-                  <div className="font-barlow font-bold text-lg mt-0.5 text-[#12181A]">{v}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {tab === "statistics" && (
-            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {Object.entries(s).map(([k, v]) => (
-                <div key={k} className="bg-white border border-[#e4dfcd] p-3.5">
-                  <div className="text-[10px] tracking-[0.5px] text-[#9a9482] font-semibold">
-                    {k.toUpperCase()}
-                  </div>
-                  <div className="font-barlow font-bold text-lg mt-0.5 text-[#0E3B2E]">{v}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {tab === "matches" &&
-            (pMatches.length ? (
-              <div className="grid md:grid-cols-3 gap-4">
-                {pMatches.map((m) => (
-                  <MatchCard key={m.id} m={m} />
-                ))}
-              </div>
-            ) : (
-              <EmptyState big="No matches recorded." />
-            ))}
-
-          {tab === "injuries" &&
-            (pInjuries.length ? (
-              <div className="overflow-x-auto bg-white border border-[#e4dfcd]">
-                <table className="w-full text-[13.5px]">
-                  <thead>
-                    <tr className="bg-[#F0EDE0] text-[11px] tracking-[0.5px] text-[#2A3532]">
-                      <th className="text-left p-3">Type</th>
-                      <th className="text-left p-3">Date</th>
-                      <th className="text-left p-3">Return</th>
-                      <th className="text-left p-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pInjuries.map((i) => (
-                      <tr key={i.id} className="border-b border-[#efe9d8] last:border-0 hover:bg-[#FFFEF7]">
-                        <td className="p-3">{i.type}</td>
-                        <td className="p-3">{fmtDate(i.date)}</td>
-                        <td className="p-3">{fmtDate(i.expectedReturn)}</td>
-                        <td className="p-3">{i.status}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <EmptyState big="No injury records." />
-            ))}
-        </div>
-      </section>
-    </>
+function Fact({ k, v }) {
+  return (
+    <div className="bg-white border border-[#e4dfcd] p-4">
+      <div className="text-xs text-ink/50">{k}</div>
+      <div className="font-semibold mt-1">{v || "—"}</div>
+    </div>
   );
 }

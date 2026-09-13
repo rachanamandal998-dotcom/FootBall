@@ -1,19 +1,18 @@
-import { createContext, useContext, useState, useEffect } from 'react'
-import { demoData } from '../data/demoData.js'
-import { STORAGE_KEY } from '../utils/helpers.js'
-import { apiCreate, apiUpdate, apiDelete, apiGetAllCollections } from '../api/client.js'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { apiCreate, apiDelete, apiGetAllCollections, apiStats, apiUpdate } from "../api/client.js";
+import { ageFromDOB } from "../utils/helpers.js";
+import { useAuth } from "./AuthContext.jsx";
 
-export const DataContext = createContext(null)
+export const DataContext = createContext(null);
 
 export const useData = () => {
-  const ctx = useContext(DataContext)
-  if(!ctx) throw new Error('useData must be used inside DataContext.Provider')
-  return ctx
-}
+  const ctx = useContext(DataContext);
+  if (!ctx) throw new Error("useData must be used inside DataContext.Provider");
+  return ctx;
+};
 
-function ensureCollections(d = {}) {
+function ensure(d = {}) {
   return {
-    ...d,
     teams: d.teams || [],
     players: d.players || [],
     matches: d.matches || [],
@@ -21,147 +20,238 @@ function ensureCollections(d = {}) {
     news: d.news || [],
     injuries: d.injuries || [],
     training: d.training || [],
-    users: d.users || [],
+    reports: d.reports || [],
     staff: d.staff || [],
     transfers: d.transfers || [],
     contracts: d.contracts || [],
-    meta: d.meta || {},
-  }
+    stadiums: d.stadiums || [],
+  };
 }
 
-function persist(d) {
-  const next = ensureCollections({ ...d, meta: { ...d.meta, lastUpdated: Date.now() } })
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-  return next
-}
-
-export function DataProvider({ children }){
-  const [DB, setDB] = useState(null)
-  const [navOpen, setNavOpen] = useState(false)
-  const [route, setRoute] = useState({ view:'home' })
-  const [toast, setToast] = useState(null)
-
-  useEffect(()=>{
-    let cancelled = false
-    const bootstrap = async () => {
-      let local = ensureCollections(demoData())
-      try {
-        const saved = localStorage.getItem(STORAGE_KEY)
-        if (saved) local = ensureCollections({ ...local, ...JSON.parse(saved) })
-      } catch {
-        local = ensureCollections(demoData())
+function computeStandings(comp, matches) {
+  if (!comp) return [];
+  const win = comp.pointsWin ?? 3;
+  const draw = comp.pointsDraw ?? 1;
+  const loss = comp.pointsLoss ?? 0;
+  const rows = {};
+  (comp.teamIds || []).forEach((tid) => {
+    rows[tid] = { teamId: tid, played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, pts: 0 };
+  });
+  const seen = new Set();
+  matches
+    .filter((m) => m.compId === comp.id && m.status === "Finished")
+    .forEach((m) => {
+      const key = m.id;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const h = rows[m.homeTeamId];
+      const a = rows[m.awayTeamId];
+      if (!h || !a) return;
+      h.played += 1;
+      a.played += 1;
+      h.gf += m.homeScore || 0;
+      h.ga += m.awayScore || 0;
+      a.gf += m.awayScore || 0;
+      a.ga += m.homeScore || 0;
+      if (m.homeScore > m.awayScore) {
+        h.won += 1;
+        a.lost += 1;
+        h.pts += win;
+        a.pts += loss;
+      } else if (m.homeScore < m.awayScore) {
+        a.won += 1;
+        h.lost += 1;
+        a.pts += win;
+        h.pts += loss;
+      } else {
+        h.draw += 1;
+        a.draw += 1;
+        h.pts += draw;
+        a.pts += draw;
       }
-      if (!cancelled) setDB(local)
+    });
+  return Object.values(rows)
+    .map((r) => ({ ...r, gd: r.gf - r.ga }))
+    .sort((x, y) => y.pts - x.pts || y.gd - x.gd || y.gf - x.gf)
+    .map((r, i) => ({ ...r, position: i + 1 }));
+}
 
-      try {
-        const remote = await apiGetAllCollections()
-        if (cancelled || !remote || !Object.keys(remote).length) return
-        const merged = persist({ ...local, ...remote })
-        if (!cancelled) setDB(merged)
-      } catch {
-        // API is optional; localStorage remains the working copy
+function computePlayerStats(player, matches) {
+  const s = { apps: 0, starts: 0, minutes: 0, goals: 0, assists: 0, yellow: 0, red: 0, cleanSheets: 0 };
+  const pid = player.id;
+  const isKeeper = String(player.position || "").toLowerCase().includes("goal");
+  matches.forEach((m) => {
+    if (!["Finished", "Live", "Half Time", "Abandoned"].includes(m.status)) return;
+    const xiH = m.lineups?.home?.startingXI || [];
+    const xiA = m.lineups?.away?.startingXI || [];
+    const subH = m.lineups?.home?.substitutes || [];
+    const subA = m.lineups?.away?.substitutes || [];
+    const started = xiH.includes(pid) || xiA.includes(pid);
+    const benched = subH.includes(pid) || subA.includes(pid);
+    const onTeam = m.homeTeamId === player.teamId || m.awayTeamId === player.teamId;
+    const cameOn = (m.events || []).some((ev) => ev.type === "sub" && ev.playerOnId === pid);
+    const involved = started || cameOn || (!(xiH.length + xiA.length) && onTeam);
+    if (!involved && !benched && !(m.events || []).some((ev) => [ev.playerId, ev.scorerId, ev.assistId, ev.playerOffId, ev.playerOnId].includes(pid))) {
+      return;
+    }
+    if (involved) {
+      s.apps += 1;
+      if (started || (!(xiH.length + xiA.length) && onTeam)) {
+        s.starts += 1;
+        s.minutes += 90;
+      } else if (cameOn) {
+        const ev = (m.events || []).find((e) => e.type === "sub" && e.playerOnId === pid);
+        s.minutes += Math.max(1, 90 - (ev?.minute || 70));
       }
     }
-    bootstrap()
-    return () => { cancelled = true }
-  },[])
+    (m.events || []).forEach((ev) => {
+      const who = ev.playerId || ev.scorerId;
+      if (ev.type === "goal" && ev.goalType !== "Own Goal" && who === pid) s.goals += 1;
+      if (ev.assistId === pid) s.assists += 1;
+      if (ev.type === "yellow" && who === pid) s.yellow += 1;
+      if (ev.type === "red" && who === pid) s.red += 1;
+    });
+    if (isKeeper && m.status === "Finished" && (started || involved)) {
+      const conceded = m.homeTeamId === player.teamId ? m.awayScore : m.homeScore;
+      if (Number(conceded) === 0) s.cleanSheets += 1;
+    }
+  });
+  return s;
+}
 
-  const saveData = (d) => {
-    setDB(persist(d))
-  }
+export function DataProvider({ children }) {
+  const { isAuthenticated } = useAuth();
+  const [DB, setDB] = useState(null);
+  const [navOpen, setNavOpen] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [statsBundle, setStatsBundle] = useState(null);
+
+  const load = useCallback(async () => {
+    const remote = await apiGetAllCollections();
+    setDB(ensure(remote));
+    try {
+      setStatsBundle(await apiStats());
+    } catch {
+      setStatsBundle(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await load();
+      } catch {
+        if (!cancelled) setDB(ensure());
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [load, isAuthenticated]);
+
+  const showToast = (msg, isErr = false) => {
+    setToast({ msg, isErr });
+    setTimeout(() => setToast(null), 2800);
+  };
+
+  const refresh = async () => {
+    try {
+      await load();
+    } catch (err) {
+      showToast(err.message || "Could not refresh data", true);
+    }
+  };
 
   const createRecord = async (collection, record) => {
-    const next = persist({ ...DB, [collection]: [...(DB[collection] || []), record] })
-    setDB(next)
-    try {
-      await apiCreate(collection, record)
-    } catch (err) {
-      console.warn('API create failed, saved locally:', err.message)
-    }
-    return record
-  }
+    const saved = await apiCreate(collection, record);
+    await load();
+    return saved;
+  };
 
   const updateRecord = async (collection, id, record) => {
-    const next = persist({
-      ...DB,
-      [collection]: (DB[collection] || []).map((item) =>
-        item.id === id ? { ...item, ...record, id } : item
-      ),
-    })
-    setDB(next)
-    try {
-      await apiUpdate(collection, id, { ...record, id })
-    } catch (err) {
-      console.warn('API update failed, saved locally:', err.message)
-    }
-  }
+    const saved = await apiUpdate(collection, id, record);
+    await load();
+    return saved;
+  };
 
   const deleteRecord = async (collection, id) => {
-    const next = persist({
-      ...DB,
-      [collection]: (DB[collection] || []).filter((item) => item.id !== id),
-    })
-    setDB(next)
-    try {
-      await apiDelete(collection, id)
-    } catch (err) {
-      console.warn('API delete failed, removed locally:', err.message)
-    }
-  }
+    await apiDelete(collection, id);
+    await load();
+  };
 
-  const showToast = (msg,isErr=false) => {
-    setToast({msg,isErr}); setTimeout(()=>setToast(null),2600)
-  }
-
-  const team = (id) => DB?.teams.find(t=>t.id===id)
-  const player = (id) => DB?.players.find(p=>p.id===id)
-  const teamPlayers = (id) => DB?.players.filter(p=>p.teamId===id) || []
+  const team = (id) => DB?.teams.find((t) => t.id === id);
+  const player = (id) => DB?.players.find((p) => p.id === id);
+  const teamPlayers = (id) => DB?.players.filter((p) => p.teamId === id) || [];
 
   const standingsFor = (compId) => {
-    if(!DB) return []
-    const comp = DB.competitions.find(c=>c.id===compId)
-    if(!comp) return []
-    const rows={}; (comp.teamIds || []).forEach(tid=>{rows[tid]={teamId:tid,played:0,won:0,draw:0,lost:0,gf:0,ga:0,pts:0}})
-    DB.matches.filter(m=>m.compId===compId && m.status==='Finished').forEach(m=>{
-      const h=rows[m.homeTeamId], a=rows[m.awayTeamId]; if(!h||!a) return
-      h.played++; a.played++; h.gf+=m.homeScore; h.ga+=m.awayScore; a.gf+=m.awayScore; a.ga+=m.homeScore
-      if(m.homeScore>m.awayScore){h.won++; a.lost++; h.pts+=comp.pointsWin}
-      else if(m.homeScore<m.awayScore){a.won++; h.lost++; a.pts+=comp.pointsWin}
-      else {h.draw++; a.draw++; h.pts+=comp.pointsDraw; a.pts+=comp.pointsDraw}
-    })
-    return Object.values(rows).map(r=>({...r,gd:r.gf-r.ga})).sort((x,y)=> y.pts-x.pts || y.gd-x.gd || y.gf-x.gf)
-  }
+    if (!DB) return [];
+    const comp = DB.competitions.find((c) => c.id === compId);
+    return computeStandings(comp, DB.matches);
+  };
 
   const playerStats = (pid) => {
-    const s={apps:0,goals:0,assists:0,yellow:0,red:0,cleanSheets:0,minutes:0}
-    if(!DB) return s
-    DB.matches.forEach(m=>{
-      if(m.status!=='Finished') return
-      ;(m.events || []).forEach(ev=>{
-        if(ev.type==='goal' && ev.scorerId===pid) s.goals++
-        if(ev.assistId===pid) s.assists++
-        if(ev.type==='yellow' && ev.scorerId===pid) s.yellow++
-        if(ev.type==='red' && ev.scorerId===pid) s.red++
-      })
-      const p = DB.players.find(x=>x.id===pid)
-      if(p && (m.homeTeamId===p.teamId || m.awayTeamId===p.teamId)){ s.apps++; s.minutes+=90 }
-    })
-    return s
+    if (!DB) return { apps: 0, starts: 0, minutes: 0, goals: 0, assists: 0, yellow: 0, red: 0, cleanSheets: 0 };
+    const p = DB.players.find((x) => x.id === pid);
+    if (!p) return { apps: 0, starts: 0, minutes: 0, goals: 0, assists: 0, yellow: 0, red: 0, cleanSheets: 0 };
+    return computePlayerStats(p, DB.matches);
+  };
+
+  const leagueLeaders = (key, n = 5) => {
+    if (!DB) return [];
+    return DB.players
+      .map((p) => ({ p, s: playerStats(p.id) }))
+      .sort((a, b) => (b.s[key] || 0) - (a.s[key] || 0))
+      .filter((x) => x.s[key] > 0)
+      .slice(0, n);
+  };
+
+  const value = useMemo(
+    () => ({
+      DB,
+      refresh,
+      createRecord,
+      updateRecord,
+      deleteRecord,
+      team,
+      player,
+      teamPlayers,
+      standingsFor,
+      playerStats,
+      leagueLeaders,
+      navOpen,
+      setNavOpen,
+      showToast,
+      toast,
+      statsBundle,
+      ageFromDOB,
+    }),
+    [DB, navOpen, toast, statsBundle],
+  );
+
+  if (!DB) {
+    return (
+      <div className="min-h-screen bg-pitch text-ivory flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full border-4 border-gold/30 border-t-gold animate-spin" />
+          <p className="font-display text-2xl tracking-wide">Loading Sindhuli Football Clubhouse</p>
+        </div>
+      </div>
+    );
   }
-
-  const leagueLeaders = (key,n=5) => {
-    if(!DB) return []
-    return DB.players.map(p=>({p,s:playerStats(p.id)})).sort((a,b)=>b.s[key]-a.s[key]).filter(x=>x.s[key]>0).slice(0,n)
-  }
-
-  const go = (view, params={}) => { setRoute({view,...params}); window.scrollTo(0,0); setNavOpen(false) }
-
-  if(!DB) return <div className="p-20 text-center font-barlow text-lg">Loading Sindhuli Football Clubhouse...</div>
 
   return (
-    <DataContext.Provider value={{ DB, saveData, createRecord, updateRecord, deleteRecord, team, player, teamPlayers, standingsFor, playerStats, leagueLeaders, route, setRoute, go, navOpen, setNavOpen, showToast, toast }}>
+    <DataContext.Provider value={value}>
       {children}
-      {toast && <div className={`fixed bottom-5 right-5 bg-[#12181A] text-[#F5F2E8] px-4 py-3 rounded-lg text-sm z-[300] border-l-4 ${toast.isErr?'border-l-[#A6372B]':'border-l-[#1E7245]'} shadow-xl`}>{toast.msg}</div>}
+      {toast && (
+        <div
+          className={`fixed bottom-5 right-5 z-[300] px-4 py-3 rounded-lg text-sm shadow-xl text-ivory bg-charcoal border-l-4 ${
+            toast.isErr ? "border-l-[#A6372B]" : "border-l-turf"
+          }`}
+        >
+          {toast.msg}
+        </div>
+      )}
     </DataContext.Provider>
-  )
+  );
 }

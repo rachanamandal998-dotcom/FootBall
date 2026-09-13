@@ -1,1 +1,109 @@
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Barlow Condensed", sans-serif;
+  --color-pitch: #0e3b2e;
+  --color-pitch-deep: #0a2a20;
+  --color-turf: #1e7245;
+  --color-gold: #c7a344;
+  --color-gold-soft: #e4cd8a;
+  --color-ivory: #f5f2e8;
+  --color-charcoal: #12181a;
+  --color-ink: #2a3532;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: #f5f2e8;
+  color: #12181a;
+}
+
+.font-display {
+  font-family: var(--font-display), sans-serif;
+}
+
+.pitch-lines {
+  background-image:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.hero-glow {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(199, 163, 68, 0.22), transparent 36%),
+    radial-gradient(circle at 80% 80%, rgba(30, 114, 69, 0.4), transparent 42%),
+    linear-gradient(180deg, #0e3b2e 0%, #071912 100%);
+}
+
+.clip-ticket {
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+}
+
+.card-3d {
+  transform-style: preserve-3d;
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+.card-3d:hover {
+  transform: rotateX(6deg) rotateY(-6deg) translateY(-4px);
+  box-shadow: 0 24px 40px -24px rgba(14, 59, 46, 0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-3d,
+  .card-3d:hover,
+  .animate-spin-slow,
+  .animate-pulse,
+  .float-ball {
+    animation: none !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 18s linear infinite;
+}
+
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.float-ball {
+  animation: floaty 4.5s ease-in-out infinite;
+}
+
+.pitch-board {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08), transparent 48%),
+    linear-gradient(180deg, #1b8a4d 0%, #0e5a32 100%);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e7245;
+  border-radius: 8px;
+}

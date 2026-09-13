@@ -1,75 +1,66 @@
-import { NavLink, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext.jsx'
+import { NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
+import { useData } from "../context/DataContext.jsx";
 
 const links = [
-  { name: 'Dashboard', path: '/admin' },
-  { name: 'Players', path: '/admin/players' },
-  { name: 'Teams', path: '/admin/teams' },
-  { name: 'Matches', path: '/admin/matches' },
-  { name: 'Competitions', path: '/admin/competitions' },
-  { name: 'News', path: '/admin/news' },
-  { name: 'Injuries', path: '/admin/injuries' },
-  { name: 'Training', path: '/admin/training' },
-  { name: 'Users', path: '/admin/users' },
-  { name: 'Settings', path: '/admin/settings' },
-]
+  ["Dashboard", "/admin"],
+  ["Players", "/admin/players"],
+  ["Teams", "/admin/teams"],
+  ["Matches", "/admin/matches"],
+  ["Competitions", "/admin/competitions"],
+  ["Standings", "/admin/standings"],
+  ["Staff", "/admin/staff"],
+  ["Training", "/admin/training"],
+  ["Injuries", "/admin/injuries"],
+  ["Transfers", "/admin/transfers"],
+  ["Contracts", "/admin/contracts"],
+  ["News", "/admin/news"],
+  ["Reports", "/admin/reports"],
+  ["Statistics", "/admin/statistics"],
+  ["Settings", "/admin/settings"],
+];
 
-export default function AdminSidebar() {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
-
-  const handleLogout = async () => {
-    await logout()
-    navigate('/login', { replace: true })
-  }
+export default function AdminSidebar({ open, onClose }) {
+  const { user, logout } = useAuth();
+  const { DB } = useData();
+  const navigate = useNavigate();
+  const newReports = (DB.reports || []).filter((r) => r.status === "New").length;
 
   return (
-    <aside className="w-64 min-h-screen bg-[#123B2A] text-white p-5 shrink-0">
-      <div className="mb-8 pb-6 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-[#1E7245] flex items-center justify-center text-xl">
-            ⚽
-          </div>
-          <div>
-            <h1 className="text-lg font-bold">Sindhuli FC</h1>
-            <p className="text-xs text-white/60">Football Clubhouse</p>
-          </div>
+    <>
+      {open && <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={onClose} />}
+      <aside className={`fixed lg:static z-50 top-0 left-0 h-full w-64 bg-[#123B2A] text-white p-5 overflow-y-auto transition-transform ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+        <div className="mb-6 pb-4 border-b border-white/10">
+          <h1 className="font-display text-xl font-extrabold">Sindhuli FC</h1>
+          <p className="text-xs text-gold-soft">Manager dashboard</p>
+          <p className="text-xs text-white/70 mt-2 truncate">{user?.name}</p>
         </div>
-        <p className="text-sm text-white/60 mt-4">Manager Panel</p>
-        {user?.name ? (
-          <p className="text-xs text-[#E4CD8A] mt-2 truncate">{user.name}</p>
-        ) : null}
-      </div>
-
-      <nav className="space-y-1">
-        {links.map((link) => (
-          <NavLink
-            key={link.path}
-            to={link.path}
-            end={link.path === '/admin'}
-            className={({ isActive }) =>
-              `flex items-center rounded-lg px-4 py-3 transition ${
-                isActive
-                  ? 'bg-[#1E7245] text-white shadow-sm'
-                  : 'text-white/70 hover:bg-white/10 hover:text-white'
-              }`
-            }
-          >
-            {link.name}
-          </NavLink>
-        ))}
-      </nav>
-
-      <div className="mt-10 pt-5 border-t border-white/10 space-y-3">
+        <nav className="space-y-1">
+          {links.map(([name, path]) => (
+            <NavLink
+              key={path}
+              to={path}
+              end={path === "/admin"}
+              onClick={onClose}
+              className={({ isActive }) => `flex items-center justify-between rounded-lg px-4 py-2.5 text-sm ${isActive ? "bg-turf" : "text-white/75 hover:bg-white/10"}`}
+            >
+              <span>{name}</span>
+              {name === "Reports" && newReports > 0 && (
+                <span className="bg-gold text-charcoal text-[10px] font-bold px-2 py-0.5 rounded-full">{newReports} New</span>
+              )}
+            </NavLink>
+          ))}
+        </nav>
         <button
-          onClick={handleLogout}
-          className="w-full text-left px-4 py-2 rounded-lg text-white/70 hover:bg-white/10 hover:text-white text-sm"
+          className="mt-8 w-full text-left px-4 py-2 rounded-lg text-white/70 hover:bg-white/10 text-sm"
+          onClick={async () => {
+            await logout();
+            navigate("/admin", { replace: true });
+          }}
         >
-          Logout
+          Sign out
         </button>
-        <p className="text-xs text-white/40">Sindhuli Football Clubhouse</p>
-        <p className="text-xs text-white/40">Manage. Play. Connect.</p>
-      </div>
-    </aside>
-  )
+      </aside>
+    </>
+  );
 }

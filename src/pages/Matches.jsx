@@ -1,52 +1,39 @@
+import { useMemo, useState } from "react";
 import { useData } from "../context/DataContext.jsx";
 import MatchCard from "../components/MatchCard.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 
+const TABS = [
+  { id: "Upcoming", statuses: ["Scheduled"] },
+  { id: "Live", statuses: ["Live", "Half Time"] },
+  { id: "Finished", statuses: ["Finished"] },
+];
+
 export default function Matches() {
-  const { DB, route, setRoute } = useData();
-  const tab = route.tab || "upcoming";
-  const groups = {
-    upcoming: DB.matches
-      .filter((m) => m.status === "Scheduled")
-      .sort((a, b) => a.date.localeCompare(b.date)),
-    live: DB.matches.filter((m) => m.status === "Live"),
-    finished: DB.matches
-      .filter((m) => m.status === "Finished")
-      .sort((a, b) => b.date.localeCompare(a.date)),
-  };
+  const { DB } = useData();
+  const [tab, setTab] = useState("Upcoming");
+  const statuses = TABS.find((t) => t.id === tab).statuses;
+  const list = useMemo(
+    () => DB.matches.filter((m) => statuses.includes(m.status)).sort((a, b) => String(a.date).localeCompare(String(b.date))),
+    [DB.matches, statuses],
+  );
 
   return (
-    <section className="py-14">
-      <div className="max-w-6xl mx-auto px-6">
-        <h2 className="font-barlow text-[32px] leading-none text-[#12181A]">Match Center</h2>
-        <p className="text-sm text-[#2A3532]/70 mt-2 mb-6">
-          All fixtures and results across Sindhuli district football
-        </p>
-
-        <div className="flex gap-2 flex-wrap mb-7">
-          {["upcoming", "live", "finished"].map((k) => (
-            <button
-              key={k}
-              onClick={() => setRoute({ ...route, tab: k })}
-              className={`px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold border transition-colors ${
-                tab === k
-                  ? "bg-[#0E3B2E] text-[#F5F2E8] border-[#0E3B2E]"
-                  : "bg-white border-[#ddd6bd] text-[#2A3532] hover:border-[#0E3B2E]"
-              }`}
-            >
-              {k[0].toUpperCase() + k.slice(1)} ({groups[k].length})
+    <section className="py-12">
+      <div className="max-w-7xl mx-auto px-6">
+        <h1 className="font-display text-5xl">Match Center</h1>
+        <p className="text-ink/70 mt-2">Live scores, fixtures and results from Sindhuli football.</p>
+        <div className="flex gap-2 mt-8 mb-6">
+          {TABS.map((t) => (
+            <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2 text-sm font-semibold border-b-2 ${tab === t.id ? "border-gold text-pitch" : "border-transparent text-ink/50"}`}>
+              {t.id}
             </button>
           ))}
         </div>
-
-        {groups[tab].length ? (
-          <div className="grid md:grid-cols-3 gap-4">
-            {groups[tab].map((m) => (
-              <MatchCard key={m.id} m={m} />
-            ))}
-          </div>
+        {list.length ? (
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">{list.map((m) => <MatchCard key={m.id} m={m} />)}</div>
         ) : (
-          <EmptyState big={`No ${tab} matches.`} />
+          <EmptyState big={`No ${tab.toLowerCase()} matches.`} />
         )}
       </div>
     </section>

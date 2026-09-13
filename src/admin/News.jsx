@@ -1,126 +1,46 @@
-import { useState } from 'react'
-import { useData } from '../context/DataContext.jsx'
-import { nextId } from '../utils/helpers.js'
-import { Field, IdField, FormShell, PageHeader, ListCard, inputClass } from './FormUI.jsx'
-
-const EMPTY = { id: '', title: '', category: 'General', content: '', date: '', author: '', status: 'Published' }
+import { useState } from "react";
+import { useData } from "../context/DataContext.jsx";
+import { ImageField } from "./FormUI.jsx";
+const EMPTY = { title:"", image:"", content:"", author:"Sports Desk", category:"Community", date:"", status:"Published" };
 
 export default function News() {
-  const { DB, createRecord, updateRecord, deleteRecord, showToast } = useData()
-  const [showForm, setShowForm] = useState(false)
-  const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState(EMPTY)
-  const [saving, setSaving] = useState(false)
-
-  const set = (key) => (e) => setForm({ ...form, [key]: e.target.value })
-
-  const openAdd = () => {
-    setEditing(null)
-    setForm({
-      ...EMPTY,
-      id: nextId('n'),
-      date: new Date().toISOString().split('T')[0],
-    })
-    setShowForm(true)
-  }
-
-  const openEdit = (n) => {
-    setEditing(n)
-    setForm({
-      id: n.id || '',
-      title: n.title || '',
-      category: n.category || 'General',
-      content: n.content || '',
-      date: n.date || '',
-      author: n.author || '',
-      status: n.status || 'Published',
-    })
-    setShowForm(true)
-  }
-
-  const reset = () => {
-    setShowForm(false)
-    setEditing(null)
-    setForm(EMPTY)
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!form.title.trim()) return showToast('Title is required', true)
-    if (!form.content.trim()) return showToast('Content is required', true)
-
-    setSaving(true)
+  const { DB, createRecord, updateRecord, deleteRecord, showToast } = useData();
+  const [form, setForm] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const save = async (e) => {
+    e.preventDefault();
+    if (!form.title || !form.content) return showToast("Title and content are required.", true);
     try {
-      if (editing) {
-        await updateRecord('news', editing.id, form)
-        showToast('News updated')
-      } else {
-        await createRecord('news', form)
-        showToast('News created')
-      }
-      reset()
-    } catch (err) {
-      showToast(err.message || 'Save failed', true)
-    } finally {
-      setSaving(false)
-    }
-  }
-
+      if (editing) await updateRecord("news", editing.id, form); else await createRecord("news", form);
+      showToast(form.status === "Published" ? "News published." : "News saved.");
+      setForm(null); setEditing(null);
+    } catch (err) { showToast(err.message, true); }
+  };
   return (
     <div className="max-w-5xl mx-auto">
-      <PageHeader title="News" count={DB.news.length} onAdd={openAdd} addLabel="+ Add News" />
-
-      {showForm && (
-        <FormShell
-          title={editing ? `Edit News — ${editing.id}` : 'Add News'}
-          onSubmit={handleSubmit}
-          onCancel={reset}
-          saving={saving}
-        >
-          <IdField value={form.id} />
-          <Field label="Title *" full>
-            <input value={form.title} onChange={set('title')} className={inputClass} required />
-          </Field>
-          <Field label="Category">
-            <select value={form.category} onChange={set('category')} className={inputClass}>
-              <option>General</option>
-              <option>Match Report</option>
-              <option>Transfer</option>
-              <option>Club News</option>
-              <option>Feature</option>
-            </select>
-          </Field>
-          <Field label="Date">
-            <input type="date" value={form.date} onChange={set('date')} className={inputClass} />
-          </Field>
-          <Field label="Author">
-            <input value={form.author} onChange={set('author')} className={inputClass} />
-          </Field>
-          <Field label="Status">
-            <select value={form.status} onChange={set('status')} className={inputClass}>
-              <option>Published</option>
-              <option>Draft</option>
-            </select>
-          </Field>
-          <Field label="Content *" full>
-            <textarea value={form.content} onChange={set('content')} className={inputClass} rows="6" required />
-          </Field>
-        </FormShell>
+      <div className="flex justify-between mb-6"><h1 className="font-display text-4xl text-pitch">News</h1><button className="bg-pitch text-white px-4 py-2 rounded" onClick={() => { setEditing(null); setForm({ ...EMPTY, date: new Date().toISOString().slice(0,10) }); }}>+ Add</button></div>
+      {form && (
+        <form onSubmit={save} className="bg-white border rounded-xl p-5 mb-6 space-y-3">
+          <input className="border rounded px-3 py-2 w-full" placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <ImageField label="Featured image" value={form.image} onChange={(url) => setForm({ ...form, image: url })} />
+          <textarea className="border rounded px-3 py-2 w-full h-32" placeholder="Content" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} />
+          <div className="grid md:grid-cols-3 gap-3">
+            <input className="border rounded px-3 py-2" value={form.author} onChange={(e) => setForm({ ...form, author: e.target.value })} />
+            <select className="border rounded px-3 py-2" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{["Match","Team","Player","Transfer","Competition","Community"].map((c) => <option key={c}>{c}</option>)}</select>
+            <select className="border rounded px-3 py-2" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}><option>Published</option><option>Draft</option><option>Unpublished</option></select>
+          </div>
+          <input type="date" className="border rounded px-3 py-2" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+          <div className="flex gap-2"><button className="bg-pitch text-white px-4 py-2 rounded">Save</button><button type="button" className="border px-4 py-2 rounded" onClick={() => setForm(null)}>Cancel</button></div>
+        </form>
       )}
-
-      <div className="space-y-2">
+      <div className="bg-white border rounded-xl divide-y">
         {DB.news.map((n) => (
-          <ListCard
-            key={n.id}
-            title={n.title}
-            subtitle={`ID: ${n.id} · ${n.category || '—'} · ${n.date || '—'} · ${n.author || '—'} · ${n.status || ''} · ${(n.content || '').slice(0, 80)}${(n.content || '').length > 80 ? '…' : ''}`}
-            onEdit={() => openEdit(n)}
-            onDelete={() => {
-              if (confirm('Delete this article?')) deleteRecord('news', n.id)
-            }}
-          />
+          <div key={n.id} className="p-4 flex justify-between">
+            <div><b>{n.title}</b><div className="text-sm text-ink/60">{n.category} · {n.status} · {n.date}</div></div>
+            <div className="space-x-2"><button className="text-turf font-semibold" onClick={() => { setEditing(n); setForm({ ...EMPTY, ...n }); }}>Edit</button><button className="text-[#A6372B]" onClick={async () => { if (confirm("Delete this article?")) await deleteRecord("news", n.id); }}>Delete</button></div>
+          </div>
         ))}
       </div>
     </div>
-  )
+  );
 }

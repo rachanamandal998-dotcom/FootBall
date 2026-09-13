@@ -1,15 +1,15 @@
-import { Outlet } from 'react-router-dom'
-import Topbar from '../components/Topbar.jsx'
-import Footer from '../components/Footer.jsx'
+import { Outlet } from "react-router-dom";
+import Topbar from "../components/Topbar.jsx";
+import Footer from "../components/Footer.jsx";
 
-export default function PublicLayout(){
+export default function PublicLayout() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#F5F2E8]">
+    <div className="min-h-screen flex flex-col bg-ivory">
       <Topbar />
       <main className="flex-1">
-        <Outlet /> {/* Your pages (Home, Matches, etc.) will render here */}
+        <Outlet />
       </main>
       <Footer />
     </div>
-  )
+  );
 }

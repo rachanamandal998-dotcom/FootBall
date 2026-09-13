@@ -1,209 +1,68 @@
-
-import { useState } from 'react'
-import { useData } from '../context/DataContext.jsx'
-import { useAuth } from '../context/AuthContext.jsx'
+import { useEffect, useState } from "react";
+import { useAuth } from "../context/AuthContext.jsx";
+import { apiSaveSettings, apiSettings } from "../api/client.js";
+import { createUserRequest, deleteUserRequest, fetchUsers } from "../api/auth.js";
 
 export default function Settings() {
-  const { DB, saveData, showToast } = useData()
-  const { user } = useAuth()
+  const { user } = useAuth();
+  const [site, setSite] = useState({ clubName: "Sindhuli Football Clubhouse", tagline: "Manage. Play. Connect.", heroText: "Your home for football in Sindhuli." });
+  const [users, setUsers] = useState([]);
+  const [msg, setMsg] = useState("");
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "manager" });
+  const canUsers = ["super_admin", "admin"].includes(user?.role);
 
-  const meta = DB?.meta || {}
-
-  const [form, setForm] = useState({
-    clubName: meta.clubName || 'Sindhuli Football Clubhouse',
-    shortName: meta.shortName || 'SFC',
-    tagline: meta.tagline || 'Manage. Play. Connect.',
-    location: meta.location || 'Sindhuli, Nepal',
-    email: meta.email || '',
-    phone: meta.phone || '',
-    website: meta.website || '',
-  })
-
-  const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    })
-  }
-
-  const handleSave = (e) => {
-    e.preventDefault()
-
-    if (!form.clubName.trim()) {
-      showToast('Club name is required', true)
-      return
-    }
-
-    saveData({
-      ...DB,
-      meta: {
-        ...meta,
-        ...form,
-      },
-    })
-
-    showToast('Settings saved successfully')
-  }
+  useEffect(() => {
+    apiSettings().then(setSite).catch(() => {});
+    if (canUsers) fetchUsers().then(setUsers).catch(() => {});
+  }, [canUsers]);
 
   return (
-    <div className="max-w-5xl mx-auto">
-
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#123B2A]">
-          Settings
-        </h1>
-
-        <p className="mt-2 text-gray-600">
-          Manage club and admin settings.
-        </p>
-      </div>
-
-      <form onSubmit={handleSave} className="space-y-6">
-
-        {/* Club Information */}
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
-
-          <h2 className="text-xl font-bold text-[#123B2A] mb-5">
-            Club Information
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-            <div>
-              <label className="block text-sm font-semibold mb-2">
-                Club Name
-              </label>
-
-              <input
-                type="text"
-                name="clubName"
-                value={form.clubName}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-lg px-4 py-3"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold mb-2">
-                Short Name
-              </label>
-
-              <input
-                type="text"
-                name="shortName"
-                value={form.shortName}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-lg px-4 py-3"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold mb-2">
-                Tagline
-              </label>
-
-              <input
-                type="text"
-                name="tagline"
-                value={form.tagline}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-lg px-4 py-3"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold mb-2">
-                Location
-              </label>
-
-              <input
-                type="text"
-                name="location"
-                value={form.location}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-lg px-4 py-3"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold mb-2">
-                Contact Email
-              </label>
-
-              <input
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-                placeholder="club@example.com"
-                className="w-full border border-gray-300 rounded-lg px-4 py-3"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold mb-2">
-                Phone
-              </label>
-
-              <input
-                type="text"
-                name="phone"
-                value={form.phone}
-                onChange={handleChange}
-                placeholder="+977..."
-                className="w-full border border-gray-300 rounded-lg px-4 py-3"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold mb-2">
-                Website
-              </label>
-
-              <input
-                type="text"
-                name="website"
-                value={form.website}
-                onChange={handleChange}
-                placeholder="https://..."
-                className="w-full border border-gray-300 rounded-lg px-4 py-3"
-              />
-            </div>
-
-          </div>
-        </div>
-
-        {/* Signed-in account */}
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <h2 className="text-xl font-bold text-[#123B2A] mb-5">
-            Signed-in account
-          </h2>
-          <div className="space-y-2 text-sm">
-            <p><span className="text-gray-500">Name:</span> <span className="font-semibold">{user?.name || '—'}</span></p>
-            <p><span className="text-gray-500">Email:</span> <span className="font-semibold">{user?.email || '—'}</span></p>
-            <p><span className="text-gray-500">Role:</span> <span className="font-semibold capitalize">{user?.role || '—'}</span></p>
-          </div>
-          <p className="text-sm text-gray-500 mt-4">
-            Authentication is managed by your account. Use Signup/Login instead of a shared admin password.
-          </p>
-        </div>
-
-        {/* Save */}
-        <div className="flex justify-end">
-
-          <button
-            type="submit"
-            className="bg-[#123B2A] hover:bg-[#1E7245] text-white px-6 py-3 rounded-lg font-semibold"
-          >
-            Save Settings
-          </button>
-
-        </div>
-
+    <div className="max-w-4xl mx-auto space-y-8">
+      <h1 className="font-display text-4xl text-pitch">Settings</h1>
+      {msg && <div className="bg-turf/10 p-3 rounded text-sm">{msg}</div>}
+      <form
+        className="bg-white border rounded-xl p-5 space-y-3"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          await apiSaveSettings(site);
+          setMsg("Settings saved.");
+        }}
+      >
+        <h2 className="font-display text-2xl">Clubhouse content</h2>
+        <input className="border rounded px-3 py-2 w-full" value={site.clubName || ""} onChange={(e) => setSite({ ...site, clubName: e.target.value })} />
+        <input className="border rounded px-3 py-2 w-full" value={site.tagline || ""} onChange={(e) => setSite({ ...site, tagline: e.target.value })} />
+        <input className="border rounded px-3 py-2 w-full" value={site.heroText || ""} onChange={(e) => setSite({ ...site, heroText: e.target.value })} />
+        <button className="bg-pitch text-white px-4 py-2 rounded">Save settings</button>
       </form>
-
+      {canUsers && (
+        <div className="bg-white border rounded-xl p-5">
+          <h2 className="font-display text-2xl mb-3">Staff login accounts</h2>
+          <form
+            className="grid md:grid-cols-4 gap-2 mb-4"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              await createUserRequest(form);
+              setUsers(await fetchUsers());
+              setForm({ name: "", email: "", password: "", role: "manager" });
+              setMsg("Staff account created.");
+            }}
+          >
+            <input className="border rounded px-3 py-2" placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <input className="border rounded px-3 py-2" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <input className="border rounded px-3 py-2" placeholder="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+            <select className="border rounded px-3 py-2" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+              {["super_admin","manager","coach","medical","staff"].map((r) => <option key={r}>{r}</option>)}
+            </select>
+            <button className="bg-pitch text-white px-4 py-2 rounded md:col-span-4">Create account</button>
+          </form>
+          {users.map((u) => (
+            <div key={u.id} className="flex justify-between py-2 border-t text-sm">
+              <span>{u.name} · {u.email} · {u.role}</span>
+              <button className="text-[#A6372B]" onClick={async () => { if (confirm("Delete this login?")) { await deleteUserRequest(u.id); setUsers(await fetchUsers()); } }}>Delete</button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
-  )
+  );
 }
-

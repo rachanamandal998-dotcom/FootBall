@@ -1,26 +1,4 @@
-const TOKEN_KEY = "sfc_token";
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
-
-export function getStoredToken() {
-  try {
-    return localStorage.getItem(TOKEN_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function storeToken(token) {
-  try {
-    if (token) localStorage.setItem(TOKEN_KEY, token);
-    else localStorage.removeItem(TOKEN_KEY);
-  } catch {
-    // ignore storage failures
-  }
-}
-
-export function clearToken() {
-  storeToken(null);
-}
 
 async function parseResponse(res) {
   const text = await res.text();
@@ -36,59 +14,57 @@ async function parseResponse(res) {
   return data;
 }
 
-function authRequest(path, options = {}) {
-  const token = getStoredToken();
-  return fetch(`${API_BASE}${path}`, {
+export function loginRequest({ email, password }) {
+  return fetch(`${API_BASE}/auth/login`, {
+    method: "POST",
     credentials: "include",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
   }).then(parseResponse);
 }
 
-export function signupRequest({ name, email, password }) {
-  return authRequest("/auth/signup", {
-    method: "POST",
-    body: JSON.stringify({ name, email, password }),
-  });
-}
-
-export function loginRequest({ email, password }) {
-  return authRequest("/auth/login", {
-    method: "POST",
-    body: JSON.stringify({ email, password }),
-  });
-}
-
 export function fetchMe() {
-  return authRequest("/auth/me");
+  return fetch(`${API_BASE}/auth/me`, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  }).then(parseResponse);
 }
 
 export function logoutRequest() {
-  return authRequest("/auth/logout", { method: "POST" }).catch(() => null);
+  return fetch(`${API_BASE}/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  })
+    .then(parseResponse)
+    .catch(() => null);
 }
 
 export function fetchUsers() {
-  return authRequest("/users");
+  return fetch(`${API_BASE}/users`, { credentials: "include" }).then(parseResponse);
 }
 
 export function createUserRequest(payload) {
-  return authRequest("/users", {
+  return fetch(`${API_BASE}/users`, {
     method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-  });
+  }).then(parseResponse);
 }
 
 export function updateUserRequest(id, payload) {
-  return authRequest(`/users/${encodeURIComponent(id)}`, {
+  return fetch(`${API_BASE}/users/${encodeURIComponent(id)}`, {
     method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-  });
+  }).then(parseResponse);
 }
 
 export function deleteUserRequest(id) {
-  return authRequest(`/users/${encodeURIComponent(id)}`, { method: "DELETE" });
+  return fetch(`${API_BASE}/users/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    credentials: "include",
+  }).then(parseResponse);
 }

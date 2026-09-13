@@ -1,128 +1,45 @@
-import { useState } from 'react'
-import { useData } from '../context/DataContext.jsx'
-import { nextId } from '../utils/helpers.js'
-import { Field, IdField, FormShell, PageHeader, ListCard, inputClass } from './FormUI.jsx'
-
-const EMPTY = { id: '', name: '', shortName: '', location: '', stadium: '', coach: '', founded: '', status: 'Active' }
+import { useState } from "react";
+import { useData } from "../context/DataContext.jsx";
+const inputClass = "w-full border rounded-lg px-3 py-2";
+const EMPTY = { name: "", shortName: "", location: "", stadium: "", coach: "", founded: "", contactEmail: "", contactPhone: "", status: "Active", logo: "" };
 
 export default function AdminTeams() {
-  const { DB, createRecord, updateRecord, deleteRecord, showToast } = useData()
-  const [showForm, setShowForm] = useState(false)
-  const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState(EMPTY)
-  const [saving, setSaving] = useState(false)
-
-  const set = (key) => (e) => setForm({ ...form, [key]: e.target.value })
-
-  const openAdd = () => {
-    setEditing(null)
-    setForm({ ...EMPTY, id: nextId('t') })
-    setShowForm(true)
-  }
-
-  const openEdit = (team) => {
-    setEditing(team)
-    setForm({
-      id: team.id || '',
-      name: team.name || '',
-      shortName: team.shortName || '',
-      location: team.location || '',
-      stadium: team.stadium || '',
-      coach: team.coach || team.manager || '',
-      founded: team.founded ?? '',
-      status: team.status || 'Active',
-    })
-    setShowForm(true)
-  }
-
-  const reset = () => {
-    setShowForm(false)
-    setEditing(null)
-    setForm(EMPTY)
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!form.name.trim()) return showToast('Name is required', true)
-    if (!form.location.trim()) return showToast('Location is required', true)
-    if (!form.stadium.trim()) return showToast('Stadium is required', true)
-    if (!form.coach.trim()) return showToast('Coach is required', true)
-
-    const record = {
-      ...form,
-      founded: form.founded === '' ? '' : Number(form.founded),
-      manager: form.coach,
-    }
-
-    setSaving(true)
+  const { DB, createRecord, updateRecord, deleteRecord, showToast } = useData();
+  const [form, setForm] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const save = async (e) => {
+    e.preventDefault();
+    if (!form.name || !form.shortName) return showToast("Team name and short name are required.", true);
+    setSaving(true);
     try {
-      if (editing) {
-        await updateRecord('teams', editing.id, record)
-        showToast('Team updated')
-      } else {
-        await createRecord('teams', record)
-        showToast('Team created')
-      }
-      reset()
-    } catch (err) {
-      showToast(err.message || 'Save failed', true)
-    } finally {
-      setSaving(false)
-    }
-  }
-
+      const record = { ...form, founded: form.founded ? Number(form.founded) : undefined };
+      if (editing) { await updateRecord("teams", editing.id, record); showToast("Team updated."); }
+      else { await createRecord("teams", record); showToast("Team added."); }
+      setForm(null); setEditing(null);
+    } catch (err) { showToast(err.message, true); } finally { setSaving(false); }
+  };
   return (
     <div className="max-w-5xl mx-auto">
-      <PageHeader title="Teams" count={DB.teams.length} onAdd={openAdd} addLabel="+ Add Team" />
-
-      {showForm && (
-        <FormShell
-          title={editing ? `Edit Team — ${editing.id}` : 'Add Team'}
-          onSubmit={handleSubmit}
-          onCancel={reset}
-          saving={saving}
-        >
-          <IdField value={form.id} />
-          <Field label="Name *">
-            <input value={form.name} onChange={set('name')} className={inputClass} placeholder="Laxmipur FC" required />
-          </Field>
-          <Field label="Short Name">
-            <input value={form.shortName} onChange={set('shortName')} className={inputClass} placeholder="LFC" />
-          </Field>
-          <Field label="Location *">
-            <input value={form.location} onChange={set('location')} className={inputClass} placeholder="Laxmipur, Sindhuli" required />
-          </Field>
-          <Field label="Stadium *">
-            <input value={form.stadium} onChange={set('stadium')} className={inputClass} placeholder="Laxmipur Ground" required />
-          </Field>
-          <Field label="Coach *">
-            <input value={form.coach} onChange={set('coach')} className={inputClass} placeholder="Rachana Mandal" required />
-          </Field>
-          <Field label="Founded">
-            <input type="number" value={form.founded} onChange={set('founded')} className={inputClass} placeholder="2012" />
-          </Field>
-          <Field label="Status">
-            <select value={form.status} onChange={set('status')} className={inputClass}>
-              <option>Active</option>
-              <option>Inactive</option>
-            </select>
-          </Field>
-        </FormShell>
+      <div className="flex justify-between mb-6"><h1 className="font-display text-4xl text-pitch">Teams</h1><button className="bg-pitch text-white px-4 py-2 rounded" onClick={() => { setEditing(null); setForm(EMPTY); }}>+ Add team</button></div>
+      {form && (
+        <form onSubmit={save} className="bg-white border rounded-xl p-5 mb-6 grid md:grid-cols-2 gap-3">
+          {[["name","Team name"],["shortName","Short name"],["location","Location"],["stadium","Stadium"],["coach","Coach"],["founded","Founded year"],["contactEmail","Contact email"],["contactPhone","Contact phone"]].map(([k,l]) => (
+            <label key={k} className="text-sm font-semibold">{l}<input className={`${inputClass} mt-1`} value={form[k] || ""} onChange={set(k)} /></label>
+          ))}
+          <label className="text-sm font-semibold">Status<select className={`${inputClass} mt-1`} value={form.status} onChange={set("status")}><option>Active</option><option>Inactive</option></select></label>
+          <div className="md:col-span-2 flex gap-2"><button disabled={saving} className="bg-pitch text-white px-4 py-2 rounded">{saving ? "Saving..." : "Save"}</button><button type="button" className="border px-4 py-2 rounded" onClick={() => setForm(null)}>Cancel</button></div>
+        </form>
       )}
-
-      <div className="space-y-2">
+      <div className="bg-white border rounded-xl divide-y">
         {DB.teams.map((t) => (
-          <ListCard
-            key={t.id}
-            title={t.name}
-            subtitle={`ID: ${t.id} · ${t.shortName || '—'} · ${t.location || '—'} · ${t.stadium || '—'} · Coach: ${t.coach || t.manager || '—'} · Est. ${t.founded || '—'}`}
-            onEdit={() => openEdit(t)}
-            onDelete={() => {
-              if (confirm('Delete this team?')) deleteRecord('teams', t.id)
-            }}
-          />
+          <div key={t.id} className="p-4 flex justify-between gap-3">
+            <div><b>{t.name}</b> <span className="text-ink/50">({t.shortName})</span><div className="text-sm text-ink/60">{t.location} · {t.stadium}</div></div>
+            <div className="space-x-2"><button className="text-turf font-semibold" onClick={() => { setEditing(t); setForm({ ...EMPTY, ...t }); }}>Edit</button><button className="text-[#A6372B] font-semibold" onClick={async () => { if (confirm("Delete this team?")) { await deleteRecord("teams", t.id); showToast("Team deleted."); } }}>Delete</button></div>
+          </div>
         ))}
       </div>
     </div>
-  )
+  );
 }

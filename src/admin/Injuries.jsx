@@ -1,126 +1,48 @@
-import { useState } from 'react'
-import { useData } from '../context/DataContext.jsx'
-import { nextId } from '../utils/helpers.js'
-import { Field, IdField, FormShell, PageHeader, ListCard, inputClass, SearchSelect } from './FormUI.jsx'
-
-const EMPTY = { id: '', playerId: '', type: '', date: '', expectedReturn: '', status: 'Recovering' }
+import { useState } from "react";
+import { useData } from "../context/DataContext.jsx";
+import { playerName } from "../utils/helpers.js";
+const EMPTY = { playerId:"", type:"", date:"", expectedReturn:"", status:"Injured", medicalNotes:"" };
 
 export default function Injuries() {
-  const { DB, createRecord, updateRecord, deleteRecord, showToast } = useData()
-  const injuries = DB.injuries || []
-  const [showForm, setShowForm] = useState(false)
-  const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState(EMPTY)
-  const [saving, setSaving] = useState(false)
-
-  const set = (key) => (e) => setForm({ ...form, [key]: e.target.value })
-  const playerOptions = (DB.players || []).map((p) => ({
-    value: p.id,
-    label: p.displayName || `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.name || p.id,
-  }))
-  const playerName = (id) => playerOptions.find((p) => p.value === id)?.label || id || '—'
-
-  const openAdd = () => {
-    setEditing(null)
-    setForm({ ...EMPTY, id: nextId('inj'), playerId: DB.players[0]?.id || '', date: new Date().toISOString().split('T')[0] })
-    setShowForm(true)
-  }
-
-  const openEdit = (item) => {
-    setEditing(item)
-    setForm({
-      id: item.id || '',
-      playerId: item.playerId || '',
-      type: item.type || '',
-      date: item.date || '',
-      expectedReturn: item.expectedReturn || '',
-      status: item.status || 'Recovering',
-    })
-    setShowForm(true)
-  }
-
-  const reset = () => {
-    setShowForm(false)
-    setEditing(null)
-    setForm(EMPTY)
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!form.playerId) return showToast('Player is required', true)
-    if (!form.type.trim()) return showToast('Injury type is required', true)
-
-    setSaving(true)
+  const { DB, createRecord, updateRecord, deleteRecord, showToast } = useData();
+  const [form, setForm] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const save = async (e) => {
+    e.preventDefault();
+    if (!form.playerId || !form.type) return showToast("Player and injury type are required.", true);
     try {
-      if (editing) {
-        await updateRecord('injuries', editing.id, form)
-        showToast('Injury updated')
-      } else {
-        await createRecord('injuries', form)
-        showToast('Injury created')
-      }
-      reset()
-    } catch (err) {
-      showToast(err.message || 'Save failed', true)
-    } finally {
-      setSaving(false)
-    }
-  }
-
+      if (editing) await updateRecord("injuries", editing.id, form); else await createRecord("injuries", form);
+      showToast(editing ? "Injury updated." : "Injury recorded.");
+      setForm(null); setEditing(null);
+    } catch (err) { showToast(err.message, true); }
+  };
   return (
     <div className="max-w-5xl mx-auto">
-      <PageHeader title="Injuries" count={injuries.length} onAdd={openAdd} addLabel="+ Add Injury" />
-
-      {showForm && (
-        <FormShell
-          title={editing ? `Edit Injury — ${editing.id}` : 'Add Injury'}
-          onSubmit={handleSubmit}
-          onCancel={reset}
-          saving={saving}
-        >
-          <IdField value={form.id} />
-          <Field label="Player *">
-            <SearchSelect
-              value={form.playerId}
-              onChange={(playerId) => setForm({ ...form, playerId })}
-              options={playerOptions}
-              placeholder="Search players..."
-            />
-          </Field>
-          <Field label="Injury Type *">
-            <input value={form.type} onChange={set('type')} className={inputClass} placeholder="Ankle Sprain" required />
-          </Field>
-          <Field label="Date">
-            <input type="date" value={form.date} onChange={set('date')} className={inputClass} />
-          </Field>
-          <Field label="Expected Return">
-            <input type="date" value={form.expectedReturn} onChange={set('expectedReturn')} className={inputClass} />
-          </Field>
-          <Field label="Status">
-            <select value={form.status} onChange={set('status')} className={inputClass}>
-              <option>Recovering</option>
-              <option>Out</option>
-              <option>Doubtful</option>
-              <option>Returned</option>
-            </select>
-          </Field>
-        </FormShell>
+      <div className="flex justify-between mb-6"><h1 className="font-display text-4xl text-pitch">Injuries</h1><button className="bg-pitch text-white px-4 py-2 rounded" onClick={() => { setEditing(null); setForm({ ...EMPTY, playerId: DB.players[0]?.id || "" }); }}>+ Add</button></div>
+      {form && (
+        <form onSubmit={save} className="bg-white border rounded-xl p-5 mb-6 grid md:grid-cols-2 gap-3">
+          <select className="border rounded px-3 py-2" value={form.playerId} onChange={(e) => setForm({ ...form, playerId: e.target.value })}>{DB.players.map((p) => <option key={p.id} value={p.id}>{playerName(p)}</option>)}</select>
+          <input className="border rounded px-3 py-2" placeholder="Injury type" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} />
+          <input type="date" className="border rounded px-3 py-2" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+          <input type="date" className="border rounded px-3 py-2" value={form.expectedReturn} onChange={(e) => setForm({ ...form, expectedReturn: e.target.value })} />
+          <select className="border rounded px-3 py-2" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{["Injured","Recovering","Fit","Returned"].map((s) => <option key={s}>{s}</option>)}</select>
+          <textarea className="border rounded px-3 py-2 md:col-span-2" placeholder="Private medical notes (managers and medical staff only)" value={form.medicalNotes} onChange={(e) => setForm({ ...form, medicalNotes: e.target.value })} />
+          <div className="md:col-span-2 flex gap-2"><button className="bg-pitch text-white px-4 py-2 rounded">Save</button><button type="button" className="border px-4 py-2 rounded" onClick={() => setForm(null)}>Cancel</button></div>
+        </form>
       )}
-
-      <div className="space-y-2">
-        {injuries.map((item) => (
-          <ListCard
-            key={item.id}
-            title={`${playerName(item.playerId)} — ${item.type}`}
-            subtitle={`ID: ${item.id} · ${item.date || '—'} · Return: ${item.expectedReturn || '—'} · ${item.status || ''}`}
-            onEdit={() => openEdit(item)}
-            onDelete={() => {
-              if (confirm('Delete this injury record?')) deleteRecord('injuries', item.id)
-            }}
-          />
+      <div className="bg-white border rounded-xl divide-y">
+        {(DB.injuries || []).map((i) => (
+          <div key={i.id} className="p-4">
+            <div className="flex justify-between">
+              <b>{playerName(DB.players.find((p) => p.id === i.playerId))} · {i.type}</b>
+              <div className="space-x-2"><button className="text-turf font-semibold" onClick={() => { setEditing(i); setForm({ ...EMPTY, ...i }); }}>Edit</button><button className="text-[#A6372B]" onClick={async () => { if (confirm("Delete this injury record?")) await deleteRecord("injuries", i.id); }}>Delete</button></div>
+            </div>
+            <div className="text-sm text-ink/60">{i.status} · {i.date} → {i.expectedReturn}</div>
+            {i.medicalNotes && <div className="text-xs mt-2 bg-ivory p-2">Medical notes: {i.medicalNotes}</div>}
+          </div>
         ))}
-        {!injuries.length && <p className="text-sm text-gray-500">No injury records yet.</p>}
+        {!DB.injuries?.length && <div className="p-6 text-ink/50">No injury records.</div>}
       </div>
     </div>
-  )
+  );
 }

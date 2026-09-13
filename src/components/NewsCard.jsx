@@ -1,43 +1,18 @@
-import { useData } from "../context/DataContext.jsx";
-
-const CATEGORY_COLOR = {
-  match: ["#1E7245", "#0E3B2E"],
-  transfer: ["#8A6A2A", "#5C4319"],
-  injury: ["#A24B39", "#6B2F22"],
-  club: ["#2A3532", "#12181A"],
-};
+import { useNavigate } from "react-router-dom";
+import { fmtDate } from "../utils/helpers.js";
 
 export default function NewsCard({ n }) {
-  const { go } = useData();
-  const [from, to] = CATEGORY_COLOR[n.category] || ["#1E7245", "#0E3B2E"];
-
+  const navigate = useNavigate();
   return (
-    <div
-      onClick={() => go("newsitem", { id: n.id })}
-      className="bg-white border border-[#e4dfcd] rounded-sm overflow-hidden hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-18px_rgba(0,0,0,0.15)] transition-all cursor-pointer"
-    >
-      <div
-        className="h-32 flex items-center justify-center relative overflow-hidden"
-        style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
-      >
-        <span className="font-barlow font-extrabold text-6xl text-white/10 tracking-tight select-none">
-          {n.category[0].toUpperCase()}
-        </span>
+    <button onClick={() => navigate(`/news/${n.id}`)} className="text-left bg-white border border-[#e4dfcd] overflow-hidden hover:-translate-y-1 transition-all w-full">
+      <div className="h-40 bg-pitch overflow-hidden">
+        {n.image ? <img src={n.image} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full pitch-lines" />}
       </div>
-      <div className="p-3.5 px-4">
-        <div className="text-[10.5px] font-bold text-[#1E7245] tracking-[0.5px]">
-          {n.category.toUpperCase()}
-        </div>
-        <div className="font-barlow font-bold text-lg mt-1.5 leading-[1.15] line-clamp-2 text-[#12181A]">
-          {n.title}
-        </div>
-        <div className="text-[13px] text-[#2A3532]/70 mt-1.5 line-clamp-2">
-          {n.content.slice(0, 90)}...
-        </div>
-        <div className="text-[11px] text-[#9a9482] mt-2.5 pt-2.5 border-t border-[#efe9d8]">
-          {n.date} · {n.author}
-        </div>
+      <div className="p-4">
+        <div className="text-[10px] uppercase tracking-wide text-gold font-bold">{n.category} · {fmtDate(n.date)}</div>
+        <h3 className="font-display text-xl font-bold mt-1 leading-tight">{n.title}</h3>
+        <p className="text-sm text-ink/70 mt-2 line-clamp-2">{n.excerpt || n.content}</p>
       </div>
-    </div>
+    </button>
   );
 }

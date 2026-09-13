@@ -1,8 +1,9 @@
-export default function EmptyState({ big, small }){
+export default function EmptyState({ big, sub, action }) {
   return (
-    <div className="text-center py- px-5 text-[#2A3532] border border-dashed border-[#ddd6bd] bg-white rounded-">
-      <div className="font-barlow text-xl text-[#12181A] mb-1.5">{big}</div>
-      <div className="text-">{small}</div>
+    <div className="py-14 text-center border border-dashed border-[#d9d2bc] bg-white/60">
+      <p className="font-display text-2xl text-charcoal">{big}</p>
+      {sub ? <p className="text-sm text-ink/60 mt-2">{sub}</p> : null}
+      {action}
     </div>
-  )
+  );
 }

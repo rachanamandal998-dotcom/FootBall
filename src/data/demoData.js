@@ -42,9 +42,5 @@ export function demoData(){
     { id:'inj1', playerId:'p8', type:'Ankle Sprain', date:'2025-03-01', expectedReturn:'2025-04-01', status:'Recovering' }
   ]
 
-  const users = [
-    { id:'u1', username:'admin', displayName:'Club Admin', email:'admin@sindhulifc.local', role:'admin', password:'admin123' },
-  ]
-
-  return { teams, players, matches, competitions, news, injuries, staff:[], training:[], transfers:[], contracts:[], users, meta:{lastUpdated: Date.now(), adminPass:'admin123'} }
+  return { teams, players, matches, competitions, news, injuries, staff:[], training:[], transfers:[], contracts:[], users: [], meta:{ lastUpdated: Date.now() } }
 }

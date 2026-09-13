@@ -1,5 +1,3 @@
-import { getStoredToken, clearToken } from "./auth.js";
-
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 const PATHS = {
@@ -10,6 +8,11 @@ const PATHS = {
   competitions: "/competitions",
   injuries: "/injuries",
   training: "/training",
+  reports: "/reports",
+  staff: "/staff",
+  transfers: "/transfers",
+  contracts: "/contracts",
+  stadiums: "/stadiums",
 };
 
 export function normalizeDoc(doc) {
@@ -20,15 +23,14 @@ export function normalizeDoc(doc) {
 }
 
 async function request(path, options = {}) {
-  const token = getStoredToken();
+  const headers = { ...(options.headers || {}) };
+  if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: "include",
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
+    headers,
   });
   const text = await res.text();
   let data = null;
@@ -38,20 +40,25 @@ async function request(path, options = {}) {
     data = text;
   }
   if (!res.ok) {
-    if (res.status === 401 && token && path !== "/auth/me") {
-      clearToken();
-    }
     const msg = data?.msg || data?.message || res.statusText || "Request failed";
-    throw new Error(msg);
+    const err = new Error(msg);
+    err.status = res.status;
+    throw err;
   }
   return data;
 }
 
-export async function apiList(collection) {
+export async function apiList(collection, query = "") {
   const path = PATHS[collection];
   if (!path) return null;
-  const data = await request(path);
+  const data = await request(`${path}${query}`);
   return Array.isArray(data) ? data.map(normalizeDoc) : null;
+}
+
+export async function apiGet(collection, id) {
+  const path = PATHS[collection];
+  if (!path) return null;
+  return normalizeDoc(await request(`${path}/${encodeURIComponent(id)}`));
 }
 
 export async function apiCreate(collection, record) {
@@ -83,9 +90,39 @@ export async function apiGetAllCollections() {
   const out = {};
   keys.forEach((key, i) => {
     const result = results[i];
-    if (result.status === "fulfilled" && Array.isArray(result.value) && result.value.length) {
-      out[key] = result.value;
-    }
+    if (result.status === "fulfilled" && Array.isArray(result.value)) out[key] = result.value;
   });
   return out;
 }
+
+export function apiStats() {
+  return request("/stats");
+}
+
+export function apiStandings(compId) {
+  return request(`/stats/standings${compId ? `?compId=${encodeURIComponent(compId)}` : ""}`);
+}
+
+export function apiDashboard() {
+  return request("/dashboard");
+}
+
+export function apiSearch(q) {
+  return request(`/search?q=${encodeURIComponent(q)}`);
+}
+
+export function apiSettings() {
+  return request("/settings");
+}
+
+export function apiSaveSettings(payload) {
+  return request("/settings", { method: "PUT", body: JSON.stringify(payload) });
+}
+
+export async function apiUpload(file) {
+  const body = new FormData();
+  body.append("file", file);
+  return request("/uploads", { method: "POST", body });
+}
+
+export { request, PATHS };

@@ -1,69 +1,50 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useData } from "../context/DataContext.jsx";
 import PlayerCard from "../components/PlayerCard.jsx";
+import EmptyState from "../components/EmptyState.jsx";
+import { ageFromDOB, playerName } from "../utils/helpers.js";
 
 export default function Players() {
   const { DB } = useData();
-  const [q, setQ] = useState(""),
-    [pos, setPos] = useState(""),
-    [team, setTeam] = useState("");
+  const [q, setQ] = useState("");
+  const [position, setPosition] = useState("");
+  const [teamId, setTeamId] = useState("");
+  const [status, setStatus] = useState("");
 
-  let list = DB.players.filter((p) =>
-    p.displayName.toLowerCase().includes(q.toLowerCase()),
-  );
-  if (pos) list = list.filter((p) => p.position === pos);
-  if (team) list = list.filter((p) => p.teamId === team);
+  const list = useMemo(() => {
+    return DB.players.filter((p) => {
+      const name = playerName(p).toLowerCase();
+      if (q && !name.includes(q.toLowerCase()) && !String(p.nationality || "").toLowerCase().includes(q.toLowerCase())) return false;
+      if (position && p.position !== position) return false;
+      if (teamId && p.teamId !== teamId) return false;
+      if (status && p.status !== status) return false;
+      return true;
+    });
+  }, [DB.players, q, position, teamId, status]);
 
   return (
-    <section className="py-14">
-      <div className="max-w-6xl mx-auto px-6">
-        <h2 className="font-barlow text-4xl leading-none text-[#12181A]">Player Directory</h2>
-        <p className="text-sm text-[#2A3532]/70 mb-6 mt-2">
-          {list.length} players across Sindhuli district clubs
-        </p>
-        <div className="grid md:grid-cols-[1fr_1fr] gap-3 mb-7">
-          <input
-            className="border border-[#ddd6bd] px-3 py-2 text-sm bg-white w-full outline-none focus:border-[#0E3B2E] transition-colors"
-            placeholder="Search by name..."
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <div className="flex gap-2">
-            <select
-              className="border border-[#ddd6bd] px-3 py-2 text-sm w-full bg-white outline-none focus:border-[#0E3B2E] transition-colors"
-              value={pos}
-              onChange={(e) => setPos(e.target.value)}
-            >
-              <option value="">All Positions</option>
-              <option>Goalkeeper</option>
-              <option>Defender</option>
-              <option>Midfielder</option>
-              <option>Forward</option>
-            </select>
-            <select
-              className="border border-[#ddd6bd] px-3 py-2 text-sm w-full bg-white outline-none focus:border-[#0E3B2E] transition-colors"
-              value={team}
-              onChange={(e) => setTeam(e.target.value)}
-            >
-              <option value="">All Teams</option>
-              {DB.teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
+    <section className="py-12">
+      <div className="max-w-7xl mx-auto px-6">
+        <h1 className="font-display text-5xl">Players</h1>
+        <div className="grid md:grid-cols-4 gap-3 mt-6">
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or nationality" className="border px-3 py-2 rounded" />
+          <select value={position} onChange={(e) => setPosition(e.target.value)} className="border px-3 py-2 rounded">
+            <option value="">All positions</option>
+            {["Goalkeeper", "Defender", "Midfielder", "Forward"].map((p) => <option key={p}>{p}</option>)}
+          </select>
+          <select value={teamId} onChange={(e) => setTeamId(e.target.value)} className="border px-3 py-2 rounded">
+            <option value="">All teams</option>
+            {DB.teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="border px-3 py-2 rounded">
+            <option value="">All statuses</option>
+            {["Active", "Injured", "Suspended", "Unavailable", "On Loan", "Retired"].map((s) => <option key={s}>{s}</option>)}
+          </select>
         </div>
         {list.length ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {list.map((p) => (
-              <PlayerCard key={p.id} p={p} />
-            ))}
-          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">{list.map((p) => <PlayerCard key={p.id} p={p} />)}</div>
         ) : (
-          <div className="text-center py-16 text-[#2A3532]/60 text-sm">
-            No players match your filters.
-          </div>
+          <div className="mt-8"><EmptyState big="No players found." /></div>
         )}
       </div>
     </section>
